@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#d9ddd2">
+  <meta name="description" content="墨刃 — 水墨横版刀剑闯关。连斩、挑空、弹反、处决，穿过雨夜竹林，迎战白袍剑客。">
+  <title>墨刃 · INK BLADE</title>
+  <link rel="icon" type="image/svg+xml" href="./mark.svg">
+  <link rel="stylesheet" href="./src/style.css">
+  <script type="module" src="./src/main.js"></script>
+</head>
+<body>
+  <main id="game" class="game" data-status="menu">
+    <canvas id="world" tabindex="0" aria-label="墨刃横版战场。A、D 移动，J 连斩，K 弹反，空格跳跃，Shift 冲刺。"></canvas>
+    <div class="paper-grain" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="墨刃首页"><span class="brand-seal">刃</span><span>墨刃<small>INK BLADE</small></span></a>
+      <div class="chapter-label"><span>卷 一</span><i></i>雨 夜 竹 林</div>
+      <nav aria-label="游戏设置">
+        <button id="sound" type="button" aria-label="关闭声音" aria-pressed="true">声 <span id="sound-state">开</span></button>
+        <button id="help" type="button">招式谱 <span>?</span></button>
+        <button id="pause" type="button" hidden aria-label="暂停游戏">暂停 <span>Ⅱ</span></button>
+        <button id="fullscreen" type="button" aria-label="全屏">⛶</button>
+      </nav>
+    </header>
+
+    <section id="intro" class="intro" aria-labelledby="title">
+      <p class="eyebrow">一 款 水 墨 刀 剑 动 作 游 戏</p>
+      <div class="title-line"><h1 id="title">墨刃</h1><span class="title-seal">一刀<br>入画</span></div>
+      <p class="tagline">把整幅山水画打穿。</p>
+      <div class="intro-rule"></div>
+      <p class="intro-copy">雨落竹林，白衣候你。<br>以连斩开路，以弹反破势。</p>
+      <button id="start" class="primary" type="button"><span>拔刀入林</span><span class="button-arrow">⟶</span></button>
+      <button id="boss-start" class="text-button" type="button">直面白袍剑客 <span>↗</span></button>
+      <p class="intro-note">键盘操控 · 建议开启声音</p>
+    </section>
+    <aside class="poem" aria-hidden="true"><span>山色入墨</span><span>刀声破雨</span><i></i></aside>
+    <div id="health-hud" class="health-hud" hidden>
+      <div class="meter-title"><span>无 名</span><small id="health-value">100 / 100</small></div>
+      <div class="health-track"><div id="health-fill"></div></div>
+      <div class="posture-track"><div id="posture-fill"></div></div>
+      <div class="ink-meter"><span>墨 势</span><div class="ink-track"><div id="ink-fill"></div></div><kbd>Q</kbd></div>
+      <div id="ink-ready" class="ink-ready" hidden>墨势已满 · Q 墨影连斩</div>
+    </div>
+    <div id="enemies-hud" aria-hidden="true"></div>
+    <div id="combo" class="combo" hidden><strong id="combo-count">0</strong><span>连 斩</span><small id="combo-name">刀锋未歇</small></div>
+    <div id="announcement" class="announcement" role="status"><span id="announcement-title"></span><small id="announcement-sub"></small></div>
+    <div id="feedback" class="feedback" aria-live="polite"></div>
+    <div id="objective" class="objective" hidden><span id="objective-text">向右前行</span><b>⟶</b></div>
+    <div id="boss-hud" class="boss-hud" hidden>
+      <div class="boss-name"><span id="boss-phase">壹 · 对剑</span><strong>白袍剑客</strong><small>THE WHITE SWORDSMAN</small></div>
+      <div class="boss-health"><div id="boss-health-fill"></div><i></i><i></i></div>
+      <div class="boss-posture"><div id="boss-posture-fill"></div></div>
+    </div>
+    <footer class="bottom-bar">
+      <span class="chapter-number">01 <i>/</i> 雨落无声</span>
+      <div class="key-guide"><span><kbd>A</kbd><kbd>D</kbd> 行走</span><span><kbd>J</kbd> 连斩</span><span><kbd>K</kbd> 弹反</span><span><kbd>Space</kbd> 跳跃</span><span><kbd>Shift</kbd> 冲刺</span><span><kbd>L</kbd> 处决</span><span><kbd>Q</kbd> 绝技</span></div>
+      <span class="footer-mark">一 刀 入 画</span>
+    </footer>
+    <div class="touch-controls" aria-label="触屏操作">
+      <div><button data-hold="left" aria-label="向左移动">‹</button><button data-hold="right" aria-label="向右移动">›</button></div>
+      <div><button data-action="jump">跃</button><button data-action="dash">闪</button><button data-action="attack">斩</button><button data-action="guard" data-hold="guard">反</button><button data-action="upper">挑</button><button data-action="dive">坠</button><button data-action="execute">决</button><button data-action="ultimate">墨</button></div>
+    </div>
+    <div id="cinematic" class="cinematic" aria-hidden="true"><i></i></div>
+    <section id="pause-panel" class="overlay-panel" hidden aria-labelledby="pause-title"><div class="panel-content"><p class="eyebrow">刀 归 鞘 · 雨 未 歇</p><h2 id="pause-title">暂歇</h2><button id="resume" class="primary" type="button">继续出刀 <span>⟶</span></button><button id="restart" class="text-button" type="button">重试当前挑战</button><button id="menu" class="text-button" type="button">回到卷首</button></div></section>
+    <section id="result" class="overlay-panel" hidden aria-labelledby="result-title"><div class="panel-content"><p id="result-eyebrow" class="eyebrow">胜 负 皆 在 一 刀</p><h2 id="result-title">墨尽</h2><p id="result-copy">听清雨声，再出一刀。</p><div id="result-stats" class="result-stats"></div><button id="retry" class="primary" type="button">再战一回 <span>⟶</span></button><button id="result-menu" class="text-button" type="button">回到卷首</button></div></section>
+    <dialog id="help-dialog"><div class="help-top"><p class="eyebrow">THE ART OF THE BLADE</p><button id="close-help" aria-label="关闭招式谱">×</button></div><h2>招式谱</h2><p class="help-intro">每一次出刀，都由你决定。</p><dl><div><dt><kbd>A</kbd><kbd>D</kbd> 行走 · <kbd>Shift</kbd> 冲刺</dt><dd>冲刺期间短暂无敌，可以穿过敌人。转身接刀，保持主动。</dd></div><div><dt><kbd>J</kbd> 三连斩</dt><dd>连续按下 J 接出三刀，第三刀造成更强的击退。提前少许输入也能接招。</dd></div><div><dt><kbd>W</kbd> + <kbd>J</kbd> 挑空 · <kbd>Space</kbd> 跳跃</dt><dd>挑起敌人，跳起按 J 追斩。空中按 S + J 下劈落地。触屏使用「挑」「跃」「斩」衔接，按「坠」下劈。</dd></div><div><dt><kbd>K</kbd> 格挡 / 精准弹反</dt><dd>刀将命中时按 K，震退敌人并大幅削减架势。按住 K 只能持续格挡；自身架势满会被打断。</dd></div><div><dt><kbd>L</kbd> 破势处决</dt><dd>敌人头顶出现「破」时，靠近按 L 处决并恢复少量气血。Boss 破势可发动强力反击。</dd></div><div><dt><kbd>Q</kbd> 墨影连斩</dt><dd>攻击和精准弹反积累墨势。满槽按 Q，在附近敌人之间释放残影连斩。</dd></div></dl><p class="help-foot">Esc / P 暂停　·　M 声音　·　失焦自动暂停</p></dialog>
+    <div id="error" class="error" role="alert" hidden></div>
+  </main>
+</body>
+</html>

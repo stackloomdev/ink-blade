@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>墨刃 · 人物动作检视</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#d4d8ce;color:#243332;font:13px Georgia,serif}canvas{display:block;width:100vw;height:100vh}header{position:absolute;top:28px;left:36px;right:36px;display:flex;align-items:center;justify-content:space-between}h1{font-weight:400;font-size:22px;letter-spacing:.3em}nav{display:flex;gap:8px}button{background:#d6dacf;border:1px solid #8b968b;color:#243332;padding:8px 12px;cursor:pointer}button.on{background:#263734;color:#e9ebe1}footer{position:absolute;bottom:30px;left:0;right:0;display:flex;justify-content:space-around;letter-spacing:.35em}.help{position:absolute;top:100px;left:36px;opacity:.65}</style>
+<canvas></canvas><header><h1>墨刃 · 角色检视</h1><nav><button data-state="idle" class="on">立姿</button><button data-state="run">奔跑</button><button data-state="attack">连斩</button><button data-state="guard">架刀</button><button data-state="dash">冲刺</button><button id="angle">转动视角</button><button id="pause">定格</button></nav></header><div class="help">实时角色模型 · 同一套战斗骨架</div><footer><span>墨衣 · 游侠</span><span>斗笠 · 刀客</span><span>白袍 · 剑客</span></footer>
+<script type="module">
+import * as THREE from '../vendor/three.module.js';
+import {Warrior} from '../src/warrior.js';
+const canvas=document.querySelector('canvas'),renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(devicePixelRatio);renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0xd4d8ce);
+scene.add(new THREE.HemisphereLight(0xecf2ed,0x627169,.85));
+const key=new THREE.DirectionalLight(0xfff5df,1.6);key.position.set(-3,7,9);scene.add(key);
+const rim=new THREE.DirectionalLight(0xd3e5e3,.9);rim.position.set(3,4,-5);scene.add(rim);
+const camera=new THREE.OrthographicCamera(-4.2*innerWidth/innerHeight/2,4.2*innerWidth/innerHeight/2,2.1,-2.1,.1,40);camera.position.set(0,2.4,9);camera.lookAt(0,1.2,0);
+const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,20),new THREE.MeshBasicMaterial({color:0xc5ccc0}));floor.rotation.x=-Math.PI/2;floor.position.y=-.08;scene.add(floor);
+const chars=['player','blade','boss'].map((type,i)=>{const w=new Warrior(type);scene.add(w.root,w.trailMesh);return {w,a:{id:i,type,x:(i-1)*2.45,y:0,vx:0,vy:0,facing:1,state:'idle',t:0,move:'slash1',phase:1,flash:0,invuln:0,duration:.34}}});
+let state='idle',time=0,last=performance.now(),turn=false,pause=false;
+document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>{state=b.dataset.state;time=0;document.querySelectorAll('[data-state]').forEach(v=>v.classList.toggle('on',v===b));});
+document.querySelector('#angle').onclick=()=>turn=!turn;document.querySelector('#pause').onclick=()=>pause=!pause;
+function frame(now){requestAnimationFrame(frame);let dt=pause?0:Math.min(.035,(now-last)/1000);last=now;time+=dt;for(const {w,a}of chars){a.state=state;a.vx=state==='run'?7:state==='dash'?15:0;const combo=Math.floor(time/.8)%3;a.move=['slash1','slash2','slash3'][combo];a.t=(time%.8)/.8*[.34,.36,.48][combo];w.update(a,time,dt);if(turn)w.root.rotation.y=Math.sin(time*.6)*1.5;}
+renderer.render(scene,camera);}requestAnimationFrame(frame);
+</script></html>
