@@ -119,6 +119,7 @@ export class InkScene{
   }
   removeEffect(e){this.scene.remove(e.mesh);e.mesh.geometry.dispose();e.mesh.material.dispose();}
   update(game,realDt){
+    const artEvents=[];
     const dt=Math.min(realDt,.04),paused=game.status==='paused',activeDt=paused?0:dt,playing=game.status==='playing',menu=game.status==='menu';
     if(!paused)this.time+=dt;const p=game.player,halfWidth=4.5*this.aspect,lead=Math.min(2.0,halfWidth*.23),edge=Math.min(7,halfWidth);
     const target=menu?p.x-halfWidth*.44:clamp(p.x+p.facing*lead,edge,89-edge);
@@ -132,6 +133,15 @@ export class InkScene{
     for(const a of actors){
       const w=this.actor(a);if(w.isOriginalArt)w.setView(menu?'front':'side');w.update(a,menu?this.time:game.time,activeDt);
       if(w.isOriginalArt)w.root.quaternion.copy(this.camera.quaternion);
+      if(w.isOriginalArt&&a.type==='player'){
+        const contacts=w.locomotion?.feet.map(f=>a.state==='run'&&w.locomotion.weight>.6&&f.contact)||[false,false];
+        contacts.forEach((contact,i)=>{
+          if(playing&&contact&&!w.lastFootContacts?.[i]){
+            const e={type:'footstep',x:w.locomotion.feet[i].worldX};this.handle(e);artEvents.push(e);
+          }
+        });
+        w.lastFootContacts=contacts;
+      }
       if(menu){w.root.scale.multiplyScalar(this.aspect<1?1.23:1.53);w.root.updateMatrixWorld(true);}
       if(playing&&(!w.isOriginalArt||w.loaded)&&['dash','ultimate'].includes(a.state)&&game.time-(w.lastGhostTime??-1)>(a.state==='dash'?.045:.075)){
         const m=w.captureGhost(a.state==='ultimate');m.material.color.set(a.state==='ultimate'?RED:0x9bb5c1);m.material.opacity=a.state==='ultimate'?.27:.16;
@@ -159,6 +169,7 @@ export class InkScene{
     this.camera.layers.set(1);this.renderer.render(this.scene,this.camera);
     this.camera.layers.set(2);this.renderer.render(this.scene,this.camera);
     this.renderer.autoClear=true;this.scene.background=bg;this.camera.layers.set(0);
+    return artEvents;
   }
   actorLabel(a){
     const w=this.actors.get(a.id);if(!w)return this.project(a.x,a.y+2.5);

@@ -109,9 +109,10 @@ try{
     console.error(error);$('error').hidden=false;$('error').textContent='角色原画未能载入，请重新载入画卷。';assetStatus.textContent='原画载入失败';
   });
   Object.defineProperty(window,'inkArt',{get:()=>({ready:scene.artReady,error:scene.assetError?.message||null,
-    actors:[...scene.actors.values()].filter(w=>w.isOriginalArt).map(w=>({type:w.type,loaded:w.loaded,parts:w.pieces.length,source:w.views.get(w.view)?.d.file}))})});
+    actors:[...scene.actors.values()].filter(w=>w.isOriginalArt).map(w=>({type:w.type,loaded:w.loaded,parts:w.pieces.length,source:w.views.get(w.view)?.d.file,
+      gait:w.locomotion?{phase:w.locomotion.phase,weight:w.locomotion.weight,feet:w.locomotion.feet.map(f=>({contact:f.contact,x:f.worldX,y:f.y}))}:null}))})});
   // Read-only diagnostics for development. No state mutation or cheats are exposed.
   Object.defineProperty(window,'inkBlade',{get:()=>({status:game.status,x:game.player.x,y:game.player.y,hp:game.player.hp,state:game.player.state,move:game.player.move,t:game.player.t,facing:game.player.facing,ink:game.ink,combo:game.combo,parries:game.parries,stage:game.encounter,elapsed:game.elapsed,enemies:game.enemies.map(e=>({id:e.id,type:e.type,x:e.x,hp:e.hp,posture:e.posture,state:e.state,t:e.t,duration:e.duration,phase:e.phase})),render:{calls:scene.renderer.info.render.calls,triangles:scene.renderer.info.render.triangles,geometries:scene.renderer.info.memory.geometries,textures:scene.renderer.info.memory.textures}})});
-  function frame(now){const dt=Math.min((now-previous)/1000,.1);previous=now;game.advance(dt,input());handleEvents();scene.update(game,dt);updateEnemyLabels();if(now-lastHud>50){syncUI();lastHud=now;}if(now>announcementUntil)ui.announcement.classList.remove('visible');if(now>feedbackUntil)ui.feedback.classList.remove('visible');requestAnimationFrame(frame);}
+  function frame(now){const dt=Math.min((now-previous)/1000,.1);previous=now;game.advance(dt,input());handleEvents();for(const e of scene.update(game,dt))audio.play(e);updateEnemyLabels();if(now-lastHud>50){syncUI();lastHud=now;}if(now>announcementUntil)ui.announcement.classList.remove('visible');if(now>feedbackUntil)ui.feedback.classList.remove('visible');requestAnimationFrame(frame);}
   syncUI();requestAnimationFrame(frame);
 }catch(error){console.error(error);$('error').hidden=false;$('error').textContent='画卷暂未展开。请使用支持 WebGL 2 的现代浏览器，并开启图形加速后重新载入。';$('start').disabled=true;$('boss-start').disabled=true;}

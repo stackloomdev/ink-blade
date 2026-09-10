@@ -9,26 +9,31 @@
   <select id="subject" aria-label="检视人物"><option value="player">墨衣 · 主角</option><option value="boss">白袍 · 剑客</option></select>
   <select id="view" aria-label="原画视角"><option value="front">正面</option><option value="side">侧面</option><option value="back">背面</option></select>
   <span class="rule"></span>
-  <button data-state="reference" class="on">原画立姿</button><button data-state="idle">持刀</button><button data-state="run">奔跑</button><button data-state="attack">出刀</button><button data-state="guard">弹反</button><button data-state="dash">冲刺</button><button data-state="jump">跃起</button>
+  <button data-state="reference" class="on">原画立姿</button><button data-state="idle">持刀</button><button data-state="run" data-speed="2.2">行走</button><button data-state="run" data-speed="7.4">奔跑</button><button data-state="attack">出刀</button><button data-state="guard">弹反</button><button data-state="dash">冲刺</button><button data-state="jump">跃起</button>
   <select id="move" aria-label="检视招式"><option value="slash1">一斩 · 横切</option><option value="slash2">二斩 · 反撩</option><option value="slash3">三斩 · 重劈</option><option value="upper">挑空</option><option value="air">空中斩</option><option value="dive">下劈</option></select>
 </div>
 <div class="views">
   <section class="panel"><div class="panel-label">你的原图<small id="file-name">HERO / FRONT</small></div><canvas id="source" aria-label="用户提供的原画"></canvas></section>
   <section class="panel"><div class="panel-label">游戏中的角色<small>同一张原图 · 无重绘</small></div><span class="badge">原始纹理</span><canvas id="render" aria-label="原画角色动作检视"></canvas><span id="loading">载入原画…</span></section>
 </div>
-<div class="timeline"><button id="pause">定格</button><input id="time" type="range" min="0" max="1000" step="1" value="0" aria-label="动作时间毫秒"><output id="ms">0 ms</output><button id="impact">命中帧</button><span id="timing">原画立姿</span></div>
+<div class="timeline"><button id="pause">定格</button><select id="playback" aria-label="播放速度"><option value="1">正常速度</option><option value="0.25">¼ 慢放</option><option value="0.1">⅒ 慢放</option></select><input id="time" type="range" min="0" max="1000" step="1" value="0" aria-label="动作时间毫秒"><output id="ms">0 ms</output><button id="impact">命中帧</button><span id="timing">原画立姿</span></div>
 <footer><span>脸、服饰和武器直接取自原图。动作由分层骨架驱动，实战使用同一套渲染。<br>正面、侧面、背面分别使用对应原图；动作检视使用侧面。</span><a id="reference" target="_blank">打开原始 PNG ↗</a></footer><p id="error" role="alert" hidden></p>
 <script type="module">
 import * as THREE from '../vendor/three.module.js';
 import {ArtWarrior} from '../src/art-warrior.js';
 import {ART_VIEWS} from '../src/art-rig-data.js';
 import {MOVES} from '../src/combat.js';
+import {gaitSettings} from '../src/locomotion.js';
 const $=id=>document.getElementById(id),canvas=$('render'),source=$('source'),ctx=source.getContext('2d');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x242627);
 const camera=new THREE.OrthographicCamera(-2,2,2,-2,.1,20);camera.position.set(0,1.55,10);camera.lookAt(0,1.55,0);camera.layers.enable(1);camera.layers.enable(2);
 const characters=new Map(['player','boss'].map(type=>{const w=new ArtWarrior(type);scene.add(w.root,w.trailMesh);return [type,w];}));
-let subject='player',view='front',state='reference',move='slash1',time=0,paused=false,last=performance.now();
+const ground=new THREE.Group(),groundPoints=[-40,-.025,0,40,-.025,0];
+for(let x=-40;x<=40;x+=.5)groundPoints.push(x,-.025,0,x,-.065,0);
+const groundGeometry=new THREE.BufferGeometry();groundGeometry.setAttribute('position',new THREE.Float32BufferAttribute(groundPoints,3));
+ground.add(new THREE.LineSegments(groundGeometry,new THREE.LineBasicMaterial({color:0x74776e,transparent:true,opacity:.55})));scene.add(ground);
+let subject='player',view='front',state='reference',move='slash1',time=0,speed=7.4,playback=1,paused=false,last=performance.now();
 let sourceImage=null;const images=new Map();
 const a={type:'player',x:0,y:0,vx:0,vy:0,facing:-1,state:'reference',move:'slash1',t:0,phase:1,duration:.34};
 function updateSource(){
@@ -48,10 +53,11 @@ function framing(){const aspect=canvas.clientWidth/canvas.clientHeight;return Ma
 function resize(){
   const w=canvas.clientWidth,h=canvas.clientHeight,hy=framing();renderer.setSize(w,h,false);camera.left=-hy*w/h;camera.right=hy*w/h;camera.top=hy;camera.bottom=-hy;camera.updateProjectionMatrix();drawSource();
 }
-function pick(s){state=s;time=0;document.querySelector('.views').classList.toggle('action',s!=='reference');if(s!=='reference'){view='side';$('view').value=view;updateSource();}document.querySelectorAll('[data-state]').forEach(b=>b.classList.toggle('on',b.dataset.state===s));resize();}
+function pick(s,nextSpeed){state=s;time=0;if(nextSpeed)speed=Number(nextSpeed);document.querySelector('.views').classList.toggle('action',s!=='reference');if(s!=='reference'){view='side';$('view').value=view;updateSource();}document.querySelectorAll('[data-state]').forEach(b=>b.classList.toggle('on',b.dataset.state===s&&(!b.dataset.speed||Number(b.dataset.speed)===speed)));resize();}
 $('subject').onchange=e=>{subject=e.target.value;updateSource();};
 $('view').onchange=e=>{view=e.target.value;pick('reference');updateSource();};
-document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>pick(b.dataset.state));
+document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>pick(b.dataset.state,b.dataset.speed));
+$('playback').onchange=e=>{playback=Number(e.target.value);};
 $('move').onchange=e=>{move=e.target.value;pick('attack');};
 $('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'继续':'定格';};
 function seek(t){paused=true;$('pause').textContent='继续';time=t;}
@@ -61,16 +67,23 @@ new ResizeObserver(resize).observe(canvas);
 const ready=Promise.all([...characters.values()].map(w=>w.ready));
 ready.then(()=>{$('loading').hidden=true;}).catch(e=>{$('loading').hidden=true;$('error').hidden=false;$('error').textContent=e.message;console.error(e);});
 Object.defineProperty(window,'inkStudy',{get:()=>({subject,view,state,move,time:a.t,paused,loaded:characters.get(subject).loaded,
+  speed,playback,gait:characters.get(subject).locomotion,legs:characters.get(subject).legPoses,
   source:ART_VIEWS[subject][view].file,renderer:'original-rgb-layered-mesh',parts:characters.get(subject).pieces.length,
   characters:[...characters].map(([type,w])=>({type,visible:w.root.visible,loaded:w.loaded,tip:w.tip.toArray(),base:w.base.toArray(),finite:[...w.tip,...w.base].every(Number.isFinite)}))})});
 updateSource();
+if(location.hash==='#run')pick('run',7.4);
 function frame(now){
-  requestAnimationFrame(frame);const dt=paused?0:Math.min(.035,Math.max(0,(now-last)/1000));last=now;time+=dt;
-  const duration=MOVES[move].duration,actionTime=state==='attack'?(paused?time:time%(duration+.40)):time%1;
-  Object.assign(a,{type:subject,state,move,t:Math.min(duration,actionTime),vx:state==='run'?7:0,duration,y:state==='jump'||state==='attack'&&['air','dive'].includes(move)?.22:0});
+  requestAnimationFrame(frame);const dt=paused?0:Math.min(.035,Math.max(0,(now-last)/1000))*playback;last=now;time+=dt;
+  const duration=state==='run'?gaitSettings(speed).stride/speed:MOVES[move].duration;
+  const actionTime=state==='attack'?(paused?time:time%(duration+.40)):state==='run'?time%duration:time%1;
+  $('time').max=state==='run'?Math.round(duration*1000):1000;
+  Object.assign(a,{type:subject,state,move,t:state==='attack'?Math.min(duration,actionTime):actionTime,x:state==='run'?-time*speed:0,vx:state==='run'?-speed:0,duration,y:state==='jump'||state==='attack'&&['air','dive'].includes(move)?.22:0});
+  if(state==='run')a.gaitPhase=time/duration;else delete a.gaitPhase;
   for(const [type,w]of characters){if(type===subject){w.setView(view);w.update(a,time,dt);}w.root.visible=type===subject;w.trailMesh.visible=w.trailMesh.visible&&type===subject;}
   if(!paused)$('time').value=Math.round(actionTime*1000);$('ms').textContent=Math.round(actionTime*1000)+' ms';
-  $('timing').textContent=state==='attack'?(actionTime<MOVES[move].active?'蓄势':actionTime<=MOVES[move].end?'命中':'收势'):state==='reference'?'原画立姿':'动作检视';
+  $('timing').textContent=state==='attack'?(actionTime<MOVES[move].active?'蓄势':actionTime<=MOVES[move].end?'命中':'收势'):state==='reference'?'原画立姿':state==='run'?`${Math.round(actionTime/duration*100)}% 步态`:'动作检视';
+  ground.visible=state!=='reference';ground.position.x=Math.floor(a.x);
+  camera.position.x=a.x;camera.lookAt(a.x,1.55,0);
   renderer.render(scene,camera);
 }requestAnimationFrame(frame);
 </script></body></html>

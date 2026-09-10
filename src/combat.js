@@ -33,7 +33,7 @@ export class InkGame {
     this.ink = bossOnly ? 35 : 0; this.kills = 0; this.parries = 0; this.damageTaken = 0;
     this.encounter = bossOnly ? 3 : 0; this.activeEncounter = null;
     this.bossOnly = bossOnly; this.checkpoint = bossOnly; this.gateBroken = false;
-    this.nextId = 1; this.ultimateTick = 0; this.lastStep = 0;
+    this.nextId = 1; this.ultimateTick = 0;
     this.emit('chapter', { text: bossOnly ? '白衣候雨' : '雨落无声', sub: bossOnly ? '古寺 · 决斗' : '第一章 · 雨夜竹林' });
   }
   emit(type, data = {}) { this.events.push({ type, ...data }); }
@@ -152,7 +152,6 @@ export class InkGame {
       p.vx += (direction * 7.4 - p.vx) * Math.min(1, dt * 22);
       if (direction) p.facing = Math.sign(direction);
       if (p.y < .05) p.state = direction ? 'run' : 'idle'; else p.state = 'jump';
-      if (p.state === 'run' && this.time - this.lastStep > .22) { this.lastStep = this.time; this.emit('footstep', { x: p.x }); }
     } else if (p.state === 'dash') p.vx = 24 * p.facing;
     else p.vx *= Math.exp(-dt * (p.state === 'guard' ? 24 : 9));
   }

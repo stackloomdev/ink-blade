@@ -2,11 +2,11 @@ import * as THREE from '../vendor/three.module.js';
 import {MOVES} from './combat.js';
 import {ART_VIEWS, ART_WEAPONS} from './art-rig-data.js';
 import {decodeCoverage} from './art-coverage.js';
+import {DistanceGait, sampleGait, poseGaitLegs} from './locomotion.js';
 
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const mix=(a,b,t)=>a+(b-a)*t;
 const smooth=t=>{t=clamp(t);return t*t*(3-2*t);};
-const TAU=Math.PI*2;
 const assets=new Map();
 const sourceRoot=new URL('../assets/reference/turnarounds/',import.meta.url);
 const coverageRoot=new URL('../assets/rig/coverage/',import.meta.url);
@@ -84,11 +84,11 @@ const settle=stance({lean:.13,drop:.09,reach:.45,lift:-.06,blade:-.62,stride:.48
 const overhead=stance({lean:-.08,drop:.04,reach:.02,lift:.85,blade:1.98,stride:.28,flow:.3});
 const low=stance({lean:.35,drop:.25,reach:.48,lift:-.13,blade:-.78,stride:.66,flow:1});
 
-export function artPose(a,time){
+export function artPose(a,time,gait=sampleGait(a.gaitPhase||0,a.vx||0)){
   const t=a.t||0;
   if(a.state==='reference'||a.state==='model')return stance();
-  if(a.state==='run')return stance({lean:.28,drop:.08+Math.cos(time*TAU*5)*.025,
-    reach:-.14,lift:.04+Math.sin(time*TAU*2.5)*.035,blade:-2.48,stride:Math.sin(time*TAU*2.5)*.60,knee:Math.cos(time*TAU*2.5),flow:.65});
+  if(a.state==='run')return stance({lean:gait.lean,drop:mix(.07,.13,gait.run)-gait.bob,
+    reach:-.10-gait.arm*.035,lift:.09-gait.arm*.025,blade:-2.48,flow:mix(.12,.43,gait.run)});
   if(a.state==='attack'){
     const move=MOVES[a.move]||MOVES.slash1,active=move.active,end=move.duration;
     let a0=idle,a1=coil,a2=strike,a3=settle;
@@ -120,6 +120,7 @@ export class ArtWarrior {
     this.root.name=type==='boss'?'WhiteSwordsman_OriginalArt':'Hero_OriginalArt';
     this.head=new THREE.Object3D();this.root.add(this.head);this.tip=new THREE.Vector3();this.base=new THREE.Vector3();
     this.pieces=[];this.views=new Map();this.materials=[];this.lastGhostTime=-1;this.view='side';this.loaded=false;this.disposed=false;
+    this.gait=new DistanceGait();
     this.trailGeometry=new THREE.BufferGeometry();this.trailGeometry.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(18*6*3),3));this.trailGeometry.setDrawRange(0,0);
     this.trailMesh=new THREE.Mesh(this.trailGeometry,new THREE.MeshBasicMaterial({color:0xf2ede1,transparent:true,opacity:.46,side:THREE.DoubleSide,depthWrite:false,depthTest:false}));
     this.trailMesh.visible=false;this.trailMesh.renderOrder=140;this.trail=[];
@@ -142,10 +143,12 @@ export class ArtWarrior {
       const g=geometry(outline,holes,art,55),mesh=new THREE.Mesh(g,m);mesh.layers.set(1);mesh.frustumCulled=false;mesh.renderOrder=102+z;
       this.body.add(mesh);const p={name,mesh,g,bind:g.userData.bind};this.pieces.push(p);return p;
     };
-    // The hidden arm/boot areas are genuinely removed from the torso mesh, so limbs can separate.
-    piece('body',rectangle(d.bounds),[d.arm,d.bootHole],2);
+    // Remove the visible original leg, including its calf: leaving it in the robe
+    // produces a third, stationary leg behind the two animated legs.
+    piece('body',rectangle(d.bounds),[d.arm,d.legCut,...(d.farHand?[d.farHand]:[])],2);
     piece('farLeg',d.leg,[],0);piece('leg',d.leg,[],1);
     piece('arm',d.arm,[],5);
+    piece('farArm',d.arm,[],-1);
     // A small source-fabric underlap covers the area revealed when the forearm leaves the robe.
     const patchPoly=d.arm;
     const patch=piece('underlap',patchPoly,[],3);
@@ -166,6 +169,7 @@ export class ArtWarrior {
   localFromPixel(x,y,d){return [(x-d.origin[0])/d.ppu,(d.origin[1]-y)/d.ppu];}
   update(a,time,dt){
     this.lastActor={...a};this.lastClock=time;
+    const gait=this.gait.update(a,time);this.locomotion=gait;
     this.root.position.set(a.x,a.y||0,.45);this.root.rotation.set(0,0,0);this.root.scale.set(1,1,1);
     // Camera tilt is compensated by the scene; art remains in its original proportions.
     this.body.rotation.set(0,0,0);this.body.scale.set(this.view==='side'?-(a.facing||1):1,1,1);
@@ -180,7 +184,14 @@ export class ArtWarrior {
       for(let i=0;i<p.count;i++){const [x,y]=this.localFromPixel(bind[i*3],bind[i*3+1],d);p.setXYZ(i,x,y,0);}p.needsUpdate=true;
       this.head.position.set(0,2.65,0);this.trailMesh.visible=false;return;
     }
-    const q=artPose(a,time),px=d.ppu;
+    const px=d.ppu,locomotion=gait.weight>.001;
+    const gaitLegs=poseGaitLegs(d,gait);
+    let q=artPose(a,time,gait);
+    if(locomotion){
+      const runPose=artPose({...a,state:'run'},time,gait);
+      runPose.drop=gaitLegs.drop;
+      q=interpolate(a.state==='run'?idle:q,runPose,gait.weight);
+    }
     const hip=d.hip,lean=q.lean,drop=q.drop*px;
     const torso=(x,y)=>{const [rx,ry]=rotate(x,y,...hip,-lean);return [rx,ry+drop];};
     const shoulder=torso(...d.shoulder),wrist0=torso(...d.wrist);
@@ -191,8 +202,17 @@ export class ArtWarrior {
     const upperA=angleBetween(shoulder,elbow)-angleBetween(d.shoulder,d.elbow);
     const lowerA=angleBetween(elbow,wrist)-angleBetween(d.elbow,d.wrist);
     const palm=transformPoint([d.wrist[0]-7/500*px,d.wrist[1]+25/500*px],d.elbow,elbow,lowerA);
+    const farShoulder=torso(d.shoulder[0]-.10*px,d.shoulder[1]+.015*px);
+    const farRest=torso(d.wrist[0]-.22*px,d.wrist[1]);
+    const farWrist=[mix(farRest[0],mix(farRest[0]-gait.arm*.13*px,farShoulder[0]-(.16+gait.arm*.30)*px,gait.run),gait.weight),
+      mix(farRest[1],mix(farRest[1]-.02*px,farShoulder[1]+(.50-gait.arm*.12)*px,gait.run),gait.weight)];
+    const farReach=distance(farShoulder,farWrist);
+    if(farReach>armLength){farWrist[0]=mix(farShoulder[0],farWrist[0],armLength/farReach);farWrist[1]=mix(farShoulder[1],farWrist[1],armLength/farReach);}
+    const farElbow=solveArm(farShoulder,farWrist,distance(d.shoulder,d.elbow),distance(d.elbow,d.wrist));
+    const farUpperA=angleBetween(farShoulder,farElbow)-angleBetween(d.shoulder,d.elbow),farLowerA=angleBetween(farElbow,farWrist)-angleBetween(d.elbow,d.wrist);
+    const farPalm=transformPoint([d.wrist[0]-7/500*px,d.wrist[1]+25/500*px],d.elbow,farElbow,farLowerA);
     const legOrigin=[d.knee[0],d.hip[1]+90/500*px];
-    const legDeform=(x,y,far=false)=>{
+    const stanceLeg=(x,y,far=false)=>{
       const phase=far?-1:1,angle=q.stride*phase,bend=q.knee*(far?-1:1);
       let [rx,ry]=rotate(x,y,...legOrigin,angle);
       if(y>d.knee[1]){
@@ -201,9 +221,29 @@ export class ArtWarrior {
       }
       return [rx+(far?30/500*px:0),ry+drop-Math.abs(q.stride)*.05*px-Math.max(0,bend)*.06*px];
     };
+    // Solve feet on the ground first, then knees and hips. Each foot has its own
+    // ankle rotation, so a planted sole does not tilt with the entire shin.
+    const canonical=([x,y])=>[(d.origin[0]-x)/px,(d.origin[1]-y)/px];
+    const {hip:bindHip,knee:bindKnee,sole:bindSole}=gaitLegs.bind;
+    const legPoses=locomotion?gaitLegs.legs:[];
+    this.legPoses=legPoses;
+    const legDeform=(x,y,far=false)=>{
+      const rest=stanceLeg(x,y,far);if(!locomotion)return rest;
+      const p=canonical([x,y]),leg=legPoses[far?1:0];
+      const thigh=transformPoint(p,bindHip,leg.hip,leg.upper),calf=transformPoint(p,bindKnee,leg.knee,leg.lower);
+      const kneeBlend=smooth((y-d.knee[1]+.045*px)/(.09*px));
+      let posed=[mix(thigh[0],calf[0],kneeBlend),mix(thigh[1],calf[1],kneeBlend)];
+      const boot=transformPoint(p,bindSole,leg.sole,leg.angle),ankleBlend=smooth((y-d.ankle[1]+.035*px)/(.08*px));
+      posed=[mix(posed[0],boot[0],ankleBlend),mix(posed[1],boot[1],ankleBlend)];
+      return [mix(rest[0],d.origin[0]-posed[0]*px,gait.weight),mix(rest[1],d.origin[1]-posed[1]*px,gait.weight)];
+    };
     const bodyDeform=(x,y)=>{
       if(y<hip[1]){
         let [rx,ry]=torso(x,y);
+        // Keep the face rigid and the eyes ahead while the chest leans into a run.
+        if(locomotion&&y<d.neck[1]){
+          const neck=torso(...d.neck);[rx,ry]=rotate(rx,ry,...neck,lean*.45*gait.weight);
+        }
         // Long hair has delayed motion, while the head and face move rigidly with the torso.
         if(x>d.shoulder[0]+75/500*px&&y>d.neck[1]){
           const w=smooth((x-d.shoulder[0]-75/500*px)/(190/500*px))*(1-smooth((y-hip[1]+.32*px)/(.32*px)));
@@ -219,7 +259,12 @@ export class ArtWarrior {
     };
     const weapon=ART_WEAPONS[this.type];
     // Angles are expressed toward the opponent; source side art faces left.
-    const localBladeAngle=Math.PI+q.blade;
+    let localBladeAngle=Math.PI+q.blade;
+    if(locomotion&&this.type==='player'){
+      const length=distance(weapon.pivot,weapon.tip)*d.ppu/weapon.ppu;
+      const dragAngle=Math.asin(clamp((d.origin[1]-.03*px-palm[1])/length,0,.95));
+      localBladeAngle=mix(localBladeAngle,dragAngle,gait.weight);
+    }
     const sourceBladeAngle=angleBetween(weapon.pivot,weapon.tip);
     const weaponScale=d.ppu/weapon.ppu;
     this.pieces.forEach(p=>{
@@ -233,14 +278,15 @@ export class ArtWarrior {
           const c=Math.cos(angle),s=Math.sin(angle),dx=(x-pivot[0])*weaponScale,dy=(y-pivot[1])*weaponScale;
           out=[anchor[0]+dx*c-dy*s,anchor[1]+dx*s+dy*c];
           if(p.name==='tassel'){out[0]+=Math.sin(time*9+y*.025)*.015*px;}
-        }else if(p.name==='arm'){
-          const up=transformPoint([x,y],d.shoulder,shoulder,upperA),low=transformPoint([x,y],d.elbow,elbow,lowerA);
+        }else if(p.name==='arm'||p.name==='farArm'){
+          const far=p.name==='farArm',hand=far?farPalm:palm;
+          const up=transformPoint([x,y],d.shoulder,far?farShoulder:shoulder,far?farUpperA:upperA),low=transformPoint([x,y],d.elbow,far?farElbow:elbow,far?farLowerA:lowerA);
           const blend=smooth((y-d.elbow[1]+35/500*px)/(65/500*px));out=[mix(up[0],low[0],blend),mix(up[1],low[1],blend)];
           // Curl the source fingers toward the palm when holding the blade.
           if(y>d.wrist[1]+28/500*px){
             const curl=smooth((y-d.wrist[1]-28/500*px)/(70/500*px));
-            out[0]=mix(out[0],palm[0]+(x-d.wrist[0])*.45,curl*.65);
-            out[1]=mix(out[1],palm[1],curl*.58);
+            out[0]=mix(out[0],hand[0]+(x-d.wrist[0])*.45,curl*(far?.94:.65));
+            out[1]=mix(out[1],hand[1],curl*(far?.94:.58));
           }
         }else if(p.name==='leg'||p.name==='farLeg')out=legDeform(x,y,p.name==='farLeg');
         else out=bodyDeform(x,y);
@@ -251,7 +297,7 @@ export class ArtWarrior {
     if(!(a.y>0)&&a.state!=='jump'){
       const footY=d.origin[1]-5/500*px,footX=d.ankle[0];
       const contacts=[false,true].flatMap(far=>[footX,footX-.24*px].map(x=>legDeform(x,footY,far)[1]));
-      this.root.position.y=(Math.max(...contacts)-d.origin[1])/px;
+      this.root.position.y=(Math.max(...contacts)-d.origin[1])/px*(1-gait.weight);
     }
     const h=torso(d.neck[0],d.neck[1]-100/500*px),hl=this.localFromPixel(...h,d);
     this.head.position.set(hl[0]*this.body.scale.x,hl[1],0);

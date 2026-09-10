@@ -30,6 +30,7 @@ npm run build   # 生成独立静态站点 dist/
 - 攻击与精准弹反积累墨势，主动释放墨影连斩。
 - 主角、白袍剑客直接使用用户原图：原始脸、服饰、纹理和配色，不再投射到简化三维人物上。
 - 正侧背面分别读取对应的原始 PNG；横版实战用侧面原画的 2.5D 分层网格、手臂逆向运动学、独立腿部、衣摆和发束变形。
+- 步态按移动距离推进，髋、膝、踝分别求解；支撑脚锁在地面，回收腿屈膝，摆臂配合前后脚，脚步声与水花跟随落脚。
 - 刀、刀鞘、剑和挂饰取自原武器图，刀柄跟随手掌，实际刀尖驱动轨迹；残影使用当前姿势的原图轮廓。
 - 冷灰雨夜竹林、月色与远山、地面水波、局部断竹、击杀墨迹、第三阶段寺门破坏。
 - 命中姿势与战斗判定对齐，真实刀路、重击火花、弹反冲击与雨水排开；朱红绝技、克制的镜头和墨色后期。
@@ -72,6 +73,7 @@ npm run build   # 生成独立静态站点 dist/
 - `src/combat.js`：固定步长战斗、招式、架势、敌人 AI、Boss 阶段、关卡与结算。
 - `src/art-warrior.js`：原画人物、分层网格、持刀逆向运动学、衣摆变形与轮廓残影。
 - `src/art-rig-data.js`：原图的视图、剪裁区域、部位轮廓和骨架坐标。
+- `src/locomotion.js`：距离驱动的步态、落脚锁定、腿部逆向运动学与重心高度。
 - `src/art-coverage.js`：无损透明轮廓解码；原始 RGB 和轮廓独立存储。
 - `src/warrior.js`：普通敌人的三维造型和动作，旧三维底稿也保留在这里。
 - `src/reference-art.js`、`src/reference-weapons.js`：旧三维底稿的纹理与武器；原画角色不使用这条路径。
@@ -81,7 +83,9 @@ npm run build   # 生成独立静态站点 dist/
 - `src/main.js`：键盘 / 触屏输入、HUD、菜单与暂停。
 - `src/audio.js`：浏览器合成音效。
 - `tests/combat.test.mjs`：战斗回归，包括正常数值的完整战役验证。
-- `tools/character-study.html`：原图与实际角色并排对照，正侧背视图和可定格的实战动作；不进入生产构建。
+- `tests/locomotion.test.mjs`：落脚滑动、屈膝方向、腿长、步态连续性、暂停和不同帧率回归。
+- `tools/character-study.html`：原图对照、行走 / 奔跑、地面标尺、慢放与动作定格；不进入生产构建。
+- `tools/locomotion-check.js`：正常按键检查实战起跑、停步、反向、暂停、接斩及支撑脚滑动。
 - `tools/verify-original-art.js`：使用实际角色类做原生分辨率像素比较和动作网格检查。
 - `tools/reference-coverage.swift`、`tools/pack-coverage.mjs`：本机生成轮廓、无损打包；正常运行无需执行。
 - `tools/export-hero.js`、`tools/prepare-model.py`：仅用于旧三维底稿，不能导出当前原画分层动画。
@@ -91,7 +95,7 @@ npm run build   # 生成独立静态站点 dist/
 
 ## 原画还原验证（2026-09-10）
 
-- 独立项目 `npm test`：13 项全部通过；`npm run build` 通过。
+- 独立项目 `npm test`：19 项全部通过（13 项战斗、6 项步态）；`npm run build` 通过。
 - 六个静态视图用实际 `ArtWarrior` 在原生分辨率渲染，采样不透明内部像素，RGB 通道误差全部为 0；透明发丝和衣摆边缘的分割不计入“像素相同”声明。
 - 两个角色共 36 个状态 / 招式组合，逐帧检查网格与刀尖坐标为有限值，覆盖左右朝向。
 - 生产构建与正常按键实战的最新结果记录在 `docs/VALIDATION.md`。
