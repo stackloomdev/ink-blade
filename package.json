@@ -1,6 +1,6 @@
 {
   "name": "ink-blade",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "墨刃 — a directly controlled ink-wash sword action game, rendered with Three.js.",

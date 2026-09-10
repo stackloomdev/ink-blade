@@ -54,10 +54,10 @@ function updateEnemyLabels(){
   for(const e of game.enemies){
     if(e.hp<=0||game.status==='menu')continue;ids.add(e.id);
     if(!enemyLabels.has(e.id)){const el=document.createElement('div');el.className='enemy-hud';el.innerHTML='<div class="enemy-life"><i></i></div><div class="enemy-posture"><i></i></div><span class="enemy-label"></span>';ui['enemies-hud'].append(el);enemyLabels.set(e.id,el);}
-    const el=enemyLabels.get(e.id),pos=scene.project(e.x,e.y+(e.type==='boss'?2.95:2.65));
+    const el=enemyLabels.get(e.id),pos=scene.actorLabel(e);
     el.style.left=`${pos.x}px`;el.style.top=`${pos.y}px`;el.style.visibility=pos.x<0||pos.x>innerWidth?'hidden':'visible';
     el.querySelector('.enemy-life i').style.width=`${e.hp/e.maxHp*100}%`;el.querySelector('.enemy-posture i').style.width=`${e.posture/e.maxPosture*100}%`;
-    el.classList.toggle('broken',e.state==='broken');el.classList.toggle('tell',e.state==='windup');
+    el.classList.toggle('boss-label',e.type==='boss');el.classList.toggle('broken',e.state==='broken');el.classList.toggle('tell',e.state==='windup');
     el.querySelector('.enemy-label').textContent=e.state==='broken'?'破 · L':e.state==='windup'?(e.type==='boss'&&e.phase>=2?'藏':'✧'):'';
   }
   for(const [id,el]of enemyLabels)if(!ids.has(id)){el.remove();enemyLabels.delete(id);}
@@ -104,7 +104,7 @@ for(const button of document.querySelectorAll('.touch-controls button')){
 try{
   scene=new InkScene($('world'));game.player.x=11;game.events=[];
   // Read-only diagnostics for development. No state mutation or cheats are exposed.
-  Object.defineProperty(window,'inkBlade',{get:()=>({status:game.status,x:game.player.x,y:game.player.y,hp:game.player.hp,state:game.player.state,facing:game.player.facing,ink:game.ink,combo:game.combo,parries:game.parries,stage:game.encounter,elapsed:game.elapsed,enemies:game.enemies.map(e=>({id:e.id,type:e.type,x:e.x,hp:e.hp,posture:e.posture,state:e.state,t:e.t,duration:e.duration,phase:e.phase})),render:{calls:scene.renderer.info.render.calls,triangles:scene.renderer.info.render.triangles,geometries:scene.renderer.info.memory.geometries,textures:scene.renderer.info.memory.textures}})});
+  Object.defineProperty(window,'inkBlade',{get:()=>({status:game.status,x:game.player.x,y:game.player.y,hp:game.player.hp,state:game.player.state,move:game.player.move,t:game.player.t,facing:game.player.facing,ink:game.ink,combo:game.combo,parries:game.parries,stage:game.encounter,elapsed:game.elapsed,enemies:game.enemies.map(e=>({id:e.id,type:e.type,x:e.x,hp:e.hp,posture:e.posture,state:e.state,t:e.t,duration:e.duration,phase:e.phase})),render:{calls:scene.renderer.info.render.calls,triangles:scene.renderer.info.render.triangles,geometries:scene.renderer.info.memory.geometries,textures:scene.renderer.info.memory.textures}})});
   function frame(now){const dt=Math.min((now-previous)/1000,.1);previous=now;game.advance(dt,input());handleEvents();scene.update(game,dt);updateEnemyLabels();if(now-lastHud>50){syncUI();lastHud=now;}if(now>announcementUntil)ui.announcement.classList.remove('visible');if(now>feedbackUntil)ui.feedback.classList.remove('visible');requestAnimationFrame(frame);}
   syncUI();requestAnimationFrame(frame);
 }catch(error){console.error(error);$('error').hidden=false;$('error').textContent='画卷暂未展开。请使用支持 WebGL 2 的现代浏览器，并开启图形加速后重新载入。';$('start').disabled=true;$('boss-start').disabled=true;}
