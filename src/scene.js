@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import { Warrior } from './warrior.js';
+import { ArtWarrior, preloadOriginalArt } from './art-warrior.js';
 import { InkWorld } from './ink-world.js';
 import { InkPost } from './ink-post.js';
 
@@ -17,6 +18,7 @@ export class InkScene{
     this.camera=new THREE.OrthographicCamera(-10,10,4.5,-4.5,.1,130);this.cameraX=7;this.cameraY=2.35;
     this.time=0;this.shake=0;this.zoom=1;this.kick=0;this.impactZoom=0;this.dustClock=0;
     this.actors=new Map();this.effects=[];this.scars=[];this.reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+    this.artReady=false;this.assetError=null;this.ready=preloadOriginalArt().then(()=>{this.artReady=true;});
     this.scene.add(new THREE.HemisphereLight(0xc6d4df,0x142533,.7));
     const key=new THREE.DirectionalLight(0xdbe6e8,1.0);key.position.set(-3,7,8);this.scene.add(key);
     const rim=new THREE.DirectionalLight(0xecf5f4,3.6);rim.position.set(4,5,-7);this.scene.add(rim);
@@ -39,8 +41,8 @@ export class InkScene{
     this.scars.forEach(s=>{this.scene.remove(s);s.geometry.dispose();s.material.dispose();});this.scars=[];
     this.environment.reset();this.post.reset();this.cameraX=7;this.shake=0;this.kick=0;this.zoom=1;this.impactZoom=0;
   }
-  actor(a){if(!this.actors.has(a.id)){const w=new Warrior(a.type);this.actors.set(a.id,w);this.scene.add(w.root,w.trailMesh);}return this.actors.get(a.id);}
-  addEffect(mesh,life,kind,extra={}){this.scene.add(mesh);const effect={mesh,life,max:life,kind,opacity:mesh.material.opacity,...extra};this.effects.push(effect);return effect;}
+  actor(a){if(!this.actors.has(a.id)){const w=['player','boss'].includes(a.type)?new ArtWarrior(a.type):new Warrior(a.type);w.ready?.catch(error=>{this.assetError=error;});w.trailMesh.layers.set(2);this.actors.set(a.id,w);this.scene.add(w.root,w.trailMesh);}return this.actors.get(a.id);}
+  addEffect(mesh,life,kind,extra={}){if(kind!=='ghost')mesh.layers.set(2);this.scene.add(mesh);const effect={mesh,life,max:life,kind,opacity:mesh.material.opacity,...extra};this.effects.push(effect);return effect;}
   ring(x,y,radius=1.8,ground=false,heavy=false){
     const m=new THREE.Mesh(new THREE.RingGeometry(radius*.978,radius,96),material(WHITE,heavy?.75:.4));m.position.set(x,y,1.0);
     if(ground){m.rotation.x=-Math.PI/2;m.position.set(x,.028,.2);m.scale.y=.9;}
@@ -128,9 +130,10 @@ export class InkScene{
     this.camera.position.set(this.cameraX+sx,this.cameraY+2.15+sy,16);this.camera.lookAt(this.cameraX+sx,this.cameraY+sy,0);
     const actors=[p,...game.enemies];
     for(const a of actors){
-      const w=this.actor(a);w.update(a,menu?this.time:game.time,activeDt);
-      if(menu){w.root.scale.multiplyScalar(this.aspect<1?1.18:1.38);w.root.updateMatrixWorld(true);}
-      if(playing&&['dash','ultimate'].includes(a.state)&&game.time-(w.lastGhostTime??-1)>(a.state==='dash'?.045:.075)){
+      const w=this.actor(a);if(w.isOriginalArt)w.setView(menu?'front':'side');w.update(a,menu?this.time:game.time,activeDt);
+      if(w.isOriginalArt)w.root.quaternion.copy(this.camera.quaternion);
+      if(menu){w.root.scale.multiplyScalar(this.aspect<1?1.23:1.53);w.root.updateMatrixWorld(true);}
+      if(playing&&(!w.isOriginalArt||w.loaded)&&['dash','ultimate'].includes(a.state)&&game.time-(w.lastGhostTime??-1)>(a.state==='dash'?.045:.075)){
         const m=w.captureGhost(a.state==='ultimate');m.material.color.set(a.state==='ultimate'?RED:0x9bb5c1);m.material.opacity=a.state==='ultimate'?.27:.16;
         this.addEffect(m,.20,'ghost');w.lastGhostTime=game.time;
       }
@@ -149,7 +152,13 @@ export class InkScene{
         if(e.kind==='spark'){e.mesh.rotation.z=Math.atan2(e.vy,e.vx);e.mesh.scale.x=1+t*.5;}else e.mesh.rotation.z+=e.spin*activeDt;
       }
     }
-    this.renderer.info.reset();this.post.render(this.scene,this.camera,this.time,activeDt,p.state==='ultimate',this.reducedMotion.matches);
+    this.renderer.info.reset();this.camera.layers.set(0);
+    this.post.render(this.scene,this.camera,this.time,activeDt,p.state==='ultimate',this.reducedMotion.matches);
+    // Composite untouched original-art RGB after the storm grading. No facial lighting/projection.
+    const bg=this.scene.background;this.scene.background=null;this.renderer.autoClear=false;this.renderer.clearDepth();
+    this.camera.layers.set(1);this.renderer.render(this.scene,this.camera);
+    this.camera.layers.set(2);this.renderer.render(this.scene,this.camera);
+    this.renderer.autoClear=true;this.scene.background=bg;this.camera.layers.set(0);
   }
   actorLabel(a){
     const w=this.actors.get(a.id);if(!w)return this.project(a.x,a.y+2.5);

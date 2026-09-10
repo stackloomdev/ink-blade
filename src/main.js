@@ -12,7 +12,7 @@ function announce(title,sub='',duration=2.5){ui['announcement-title'].textConten
 function feedback(text){ui.feedback.textContent=text;ui.feedback.classList.add('visible');feedbackUntil=performance.now()+550;}
 function focusGame(){$('world').focus({preventScroll:true});}
 function start(boss=false){
-  if(!scene)return;clearInput();game.reset(boss);scene.reset();scene.cameraX=boss?74:7;audio.start();audio.pause(false);
+  if(!scene?.artReady)return;clearInput();game.reset(boss);scene.reset();scene.cameraX=boss?74:7;audio.start();audio.pause(false);
   announcementUntil=0;feedbackUntil=0;ui.feedback.classList.remove('visible');lastStatus='';syncUI();focusGame();
 }
 function menu(){clearInput();game.reset();game.status='menu';game.player.x=11;scene.reset();scene.cameraX=8;game.events=[];ui.announcement.classList.remove('visible');lastStatus='';syncUI();}
@@ -103,6 +103,13 @@ for(const button of document.querySelectorAll('.touch-controls button')){
 }
 try{
   scene=new InkScene($('world'));game.player.x=11;game.events=[];
+  $('start').disabled=true;$('boss-start').disabled=true;
+  const assetStatus=document.querySelector('.intro-note');assetStatus.textContent='原画载入中…';
+  scene.ready.then(()=>{$('start').disabled=false;$('boss-start').disabled=false;assetStatus.textContent='键盘操控 · 建议开启声音';}).catch(error=>{
+    console.error(error);$('error').hidden=false;$('error').textContent='角色原画未能载入，请重新载入画卷。';assetStatus.textContent='原画载入失败';
+  });
+  Object.defineProperty(window,'inkArt',{get:()=>({ready:scene.artReady,error:scene.assetError?.message||null,
+    actors:[...scene.actors.values()].filter(w=>w.isOriginalArt).map(w=>({type:w.type,loaded:w.loaded,parts:w.pieces.length,source:w.views.get(w.view)?.d.file}))})});
   // Read-only diagnostics for development. No state mutation or cheats are exposed.
   Object.defineProperty(window,'inkBlade',{get:()=>({status:game.status,x:game.player.x,y:game.player.y,hp:game.player.hp,state:game.player.state,move:game.player.move,t:game.player.t,facing:game.player.facing,ink:game.ink,combo:game.combo,parries:game.parries,stage:game.encounter,elapsed:game.elapsed,enemies:game.enemies.map(e=>({id:e.id,type:e.type,x:e.x,hp:e.hp,posture:e.posture,state:e.state,t:e.t,duration:e.duration,phase:e.phase})),render:{calls:scene.renderer.info.render.calls,triangles:scene.renderer.info.render.triangles,geometries:scene.renderer.info.memory.geometries,textures:scene.renderer.info.memory.textures}})});
   function frame(now){const dt=Math.min((now-previous)/1000,.1);previous=now;game.advance(dt,input());handleEvents();scene.update(game,dt);updateEnemyLabels();if(now-lastHud>50){syncUI();lastHud=now;}if(now>announcementUntil)ui.announcement.classList.remove('visible');if(now>feedbackUntil)ui.feedback.classList.remove('visible');requestAnimationFrame(frame);}

@@ -1,42 +1,76 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>墨刃 · 人物动作检视</title>
-<style>*{box-sizing:border-box}body{margin:0;background:#293742;color:#d3dee3;font:13px Georgia,"Songti SC",serif}canvas{display:block;width:100vw;height:100vh}header{position:absolute;top:22px;left:30px;right:30px;display:flex;align-items:center;justify-content:space-between;gap:20px}h1{font-weight:400;font-size:21px;letter-spacing:.2em;white-space:nowrap}nav{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}button,select,input{font:inherit;background:#142430bd;border:1px solid #8da6b642;color:#c7d7df;padding:8px 10px;cursor:pointer}button.on{background:#d1dbdd;color:#162633}footer a{color:inherit}footer{position:absolute;bottom:30px;left:0;right:0;display:flex;justify-content:space-around;letter-spacing:.25em}.timeline{position:absolute;top:105px;left:30px;right:30px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;font-size:11px;letter-spacing:1px;opacity:.8}.timeline input{width:80px}.timeline p{margin:0}#timing{color:#c6dadd}#timing.active{color:#efdbc0}@media(max-width:850px){header{display:block;left:20px;right:20px;top:12px}h1{font-size:17px}nav{justify-content:flex-start}.timeline{top:143px;left:20px;gap:10px}button,select{padding:6px;font-size:11px}footer{font-size:11px}}
-</style>
-<canvas></canvas><header><h1>墨刃 · 角色检视</h1><nav><button data-state="idle" class="on">立姿</button><button data-state="model">建模姿势</button><button data-state="run">奔跑</button><button data-state="attack">出刀</button><button data-state="guard">弹反架势</button><button data-state="dash">冲刺</button><select id="move" aria-label="检视招式"><option value="slash1">一斩 · 横切</option><option value="slash2">二斩 · 反撩</option><option value="slash3">三斩 · 重劈</option><option value="upper">挑空</option><option value="air">空中斩</option><option value="dive">下劈</option></select><select id="subject" aria-label="检视人物"><option value="player">主角 · 参考造型</option><option value="all">三人对照</option><option value="blade">斗笠刀客</option><option value="boss">白袍剑客</option></select><select id="view" aria-label="模型视角"><option value="game">游戏视角</option><option value="front">正面</option><option value="side">侧面</option><option value="back">背面</option></select><button id="angle">转动视角</button><button id="pause">定格</button><button id="export">导出角色 GLB</button></nav></header>
-<div class="timeline"><label>动作时间 <input id="time" type="number" min="0" max="1000" step="10" value="0" aria-label="动作时间毫秒"> ms</label><button id="impact">跳到命中帧</button><span id="timing">待机</span><p>可旋转、定格查看。角色与实战使用同一套动作。</p></div>
-<footer><span id="caption">墨衣 · 游侠 / 按参考图重塑</span><a id="reference" href="../assets/reference/turnarounds/hero-front.png" target="_blank">查看对应参考图 ↗</a></footer>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>墨刃 · 原画还原检视</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#181a1b;color:#e9e3d7;font:13px "Songti SC",Georgia,serif}button,select,input{font:inherit}button,select{background:transparent;border:1px solid #ffffff25;color:inherit;padding:9px 13px;cursor:pointer}button:hover{border-color:#b9aa93}button.on{background:#e9e3d7;color:#222}select{background:#232526}a{color:inherit;text-decoration:none}header{padding:25px 30px 21px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #ffffff18}h1{font-size:20px;font-weight:400;letter-spacing:.15em;margin:0}h1 small{font:9px Georgia;letter-spacing:.23em;color:#9f9d95;display:block;margin-top:8px}.seal{display:inline-block;background:#88392c;border:1px solid #b86d50;padding:7px 9px;margin-right:14px}header a{font-size:12px;color:#bab7af}.controls{padding:19px 30px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}.rule{height:22px;width:1px;background:#ffffff20;margin:0 6px}.views{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#ffffff13;margin:0 30px;border:1px solid #ffffff13}.panel{position:relative;background:#242627;min-width:0}.panel-label{position:absolute;left:20px;top:19px;font-size:12px;letter-spacing:.2em;z-index:2}.panel-label small{display:block;font:9px Georgia;color:#96978f;letter-spacing:.12em;margin-top:7px}.panel canvas{display:block;width:100%;height:min(65vh,730px);min-height:370px}.badge{position:absolute;right:17px;top:18px;border:1px solid #b09b733f;color:#c5b597;font-size:10px;padding:4px 7px}.timeline{display:flex;align-items:center;gap:16px;padding:20px 30px 10px}.timeline input{accent-color:#ac503a;flex:1;min-width:60px}.timeline output{font:11px Georgia;width:50px;color:#b8b4a9}#timing{min-width:55px;color:#c6bba6;font-size:12px}footer{padding:13px 30px 25px;display:flex;justify-content:space-between;gap:20px;font-size:11px;line-height:1.8;color:#98988e}.warning{color:#d79777}#loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);color:#d7cdbb}#error{color:#f0a58e;margin:20px 30px}[hidden]{display:none!important}@media(max-width:700px){header{padding:20px}h1{font-size:16px}.controls{padding:16px 20px;gap:6px}button,select{font-size:11px;padding:7px 9px}.views{margin:0 20px}.panel-label{left:12px;top:14px;font-size:11px}.badge{display:none}.panel canvas{height:54vh;min-height:340px}.timeline{padding:16px 20px 6px;gap:8px}footer{padding:12px 20px;display:block;font-size:10px}}
+</style></head><body>
+<style>.views.action{grid-template-columns:1fr}.views.action .panel:first-child{display:none}</style>
+<header><h1><span class="seal">刃</span>原画还原检视<small>INK BLADE / ORIGINAL ART STUDY</small></h1><a href="../">进入竹林 ⟶</a></header>
+<div class="controls">
+  <select id="subject" aria-label="检视人物"><option value="player">墨衣 · 主角</option><option value="boss">白袍 · 剑客</option></select>
+  <select id="view" aria-label="原画视角"><option value="front">正面</option><option value="side">侧面</option><option value="back">背面</option></select>
+  <span class="rule"></span>
+  <button data-state="reference" class="on">原画立姿</button><button data-state="idle">持刀</button><button data-state="run">奔跑</button><button data-state="attack">出刀</button><button data-state="guard">弹反</button><button data-state="dash">冲刺</button><button data-state="jump">跃起</button>
+  <select id="move" aria-label="检视招式"><option value="slash1">一斩 · 横切</option><option value="slash2">二斩 · 反撩</option><option value="slash3">三斩 · 重劈</option><option value="upper">挑空</option><option value="air">空中斩</option><option value="dive">下劈</option></select>
+</div>
+<div class="views">
+  <section class="panel"><div class="panel-label">你的原图<small id="file-name">HERO / FRONT</small></div><canvas id="source" aria-label="用户提供的原画"></canvas></section>
+  <section class="panel"><div class="panel-label">游戏中的角色<small>同一张原图 · 无重绘</small></div><span class="badge">原始纹理</span><canvas id="render" aria-label="原画角色动作检视"></canvas><span id="loading">载入原画…</span></section>
+</div>
+<div class="timeline"><button id="pause">定格</button><input id="time" type="range" min="0" max="1000" step="1" value="0" aria-label="动作时间毫秒"><output id="ms">0 ms</output><button id="impact">命中帧</button><span id="timing">原画立姿</span></div>
+<footer><span>脸、服饰和武器直接取自原图。动作由分层骨架驱动，实战使用同一套渲染。<br>正面、侧面、背面分别使用对应原图；动作检视使用侧面。</span><a id="reference" target="_blank">打开原始 PNG ↗</a></footer><p id="error" role="alert" hidden></p>
 <script type="module">
 import * as THREE from '../vendor/three.module.js';
-import {Warrior} from '../src/warrior.js';
+import {ArtWarrior} from '../src/art-warrior.js';
+import {ART_VIEWS} from '../src/art-rig-data.js';
 import {MOVES} from '../src/combat.js';
-import {InkPost} from '../src/ink-post.js';
-import {exportCharacter} from './export-hero.js';
-const canvas=document.querySelector('canvas'),renderer=new THREE.WebGLRenderer({canvas,antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x53616a);scene.add(new THREE.HemisphereLight(0xc6d4df,0x142533,.7));
-const key=new THREE.DirectionalLight(0xdbe6e8,1.0);key.position.set(-3,7,8);scene.add(key);
-const rim=new THREE.DirectionalLight(0xecf5f4,3.6);rim.position.set(4,5,-7);scene.add(rim);
-const camera=new THREE.OrthographicCamera(-4.4,4.4,2.475,-2.475,.1,40);camera.position.set(0,2.4,9);camera.lookAt(0,1.2,0);
-const post=new InkPost(renderer);
-const floor=new THREE.Mesh(new THREE.PlaneGeometry(30,12),new THREE.MeshBasicMaterial({color:0x23323e}));floor.rotation.x=-Math.PI/2;floor.position.y=-.08;scene.add(floor);
-const chars=['player','blade','boss'].map((type,i)=>{const w=new Warrior(type);scene.add(w.root,w.trailMesh);return {w,a:{id:i,type,x:(i-1)*2.45,y:0,vx:0,vy:0,facing:1,state:'idle',t:0,move:'slash1',phase:1,flash:0,invuln:0,duration:.34}}});
-let state='idle',time=0,last=performance.now(),turn=false,paused=false,move='slash1',subject='player',view='game';
-document.querySelector('#subject').onchange=e=>{subject=e.target.value;document.querySelector('#caption').textContent=subject==='all'?'墨衣 · 刀客 · 白袍':subject==='player'?'墨衣 · 游侠 / 按参考图重塑':subject==='boss'?'白袍 · 剑客':'斗笠 · 刀客';resize();};
-document.querySelector('#view').onchange=e=>{view=e.target.value;turn=false;updateReference();};
-document.querySelector('#export').onclick=async e=>{const b=e.target;b.disabled=true;try{const data=await exportCharacter(subject==='boss'?'boss':'player'),url=URL.createObjectURL(new Blob([data],{type:'model/gltf-binary'})),a=document.createElement('a');a.href=url;a.download=subject==='boss'?'ink-blade-white-swordsman.glb':'ink-blade-hero.glb';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(error){console.error(error);b.textContent='导出失败，请重试';}finally{b.disabled=!['player','boss'].includes(subject);}};
-const clock=document.querySelector('#time'),timing=document.querySelector('#timing');
-function pick(s){state=s;time=0;chars.forEach(c=>c.w.q=null);document.querySelectorAll('[data-state]').forEach(v=>v.classList.toggle('on',v.dataset.state===s));}
+const $=id=>document.getElementById(id),canvas=$('render'),source=$('source'),ctx=source.getContext('2d');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x242627);
+const camera=new THREE.OrthographicCamera(-2,2,2,-2,.1,20);camera.position.set(0,1.55,10);camera.lookAt(0,1.55,0);camera.layers.enable(1);camera.layers.enable(2);
+const characters=new Map(['player','boss'].map(type=>{const w=new ArtWarrior(type);scene.add(w.root,w.trailMesh);return [type,w];}));
+let subject='player',view='front',state='reference',move='slash1',time=0,paused=false,last=performance.now();
+let sourceImage=null;const images=new Map();
+const a={type:'player',x:0,y:0,vx:0,vy:0,facing:-1,state:'reference',move:'slash1',t:0,phase:1,duration:.34};
+function updateSource(){
+  const d=ART_VIEWS[subject][view],url='../assets/reference/turnarounds/'+d.file+'.png';
+  $('reference').href=url;$('file-name').textContent=d.file.toUpperCase();
+  if(!images.has(url)){const img=new Image();img.onload=()=>{if(sourceImage===img)drawSource();};img.src=url;images.set(url,img);}
+  sourceImage=images.get(url);drawSource();resize();
+}
+function drawSource(){
+  if(!sourceImage?.complete||!sourceImage.naturalWidth)return;
+  const d=ART_VIEWS[subject][view],ratio=Math.min(devicePixelRatio,2),w=source.clientWidth,h=source.clientHeight;
+  source.width=Math.round(w*ratio);source.height=Math.round(h*ratio);ctx.setTransform(ratio,0,0,ratio,0,0);ctx.fillStyle='#242627';ctx.fillRect(0,0,w,h);
+  const [l,t,r,b]=d.bounds,halfY=framing(),scale=h/(halfY*2*d.ppu),cx=w*.5,cy=h*.5+1.55*h/(halfY*2);
+  ctx.drawImage(sourceImage,l,t,r-l,b-t,cx+(l-d.origin[0])*scale,cy+(t-d.origin[1])*scale,(r-l)*scale,(b-t)*scale);
+}
+function framing(){const aspect=canvas.clientWidth/canvas.clientHeight;return Math.max(1.87,(state==='reference'?1.06:2.95)/aspect);}
+function resize(){
+  const w=canvas.clientWidth,h=canvas.clientHeight,hy=framing();renderer.setSize(w,h,false);camera.left=-hy*w/h;camera.right=hy*w/h;camera.top=hy;camera.bottom=-hy;camera.updateProjectionMatrix();drawSource();
+}
+function pick(s){state=s;time=0;document.querySelector('.views').classList.toggle('action',s!=='reference');if(s!=='reference'){view='side';$('view').value=view;updateSource();}document.querySelectorAll('[data-state]').forEach(b=>b.classList.toggle('on',b.dataset.state===s));resize();}
+$('subject').onchange=e=>{subject=e.target.value;updateSource();};
+$('view').onchange=e=>{view=e.target.value;pick('reference');updateSource();};
 document.querySelectorAll('[data-state]').forEach(b=>b.onclick=()=>pick(b.dataset.state));
-document.querySelector('#move').onchange=e=>{move=e.target.value;pick('attack');};
-document.querySelector('#angle').onclick=()=>turn=!turn;
-document.querySelector('#pause').onclick=()=>{paused=!paused;document.querySelector('#pause').textContent=paused?'继续':'定格';};
-function seek(seconds){pick('attack');time=seconds;paused=true;clock.value=Math.round(seconds*1000);document.querySelector('#pause').textContent='继续';chars.forEach(c=>{c.w.q=null;c.w.lastTime=null;});}
-clock.oninput=()=>seek(Math.max(0,Math.min(1,Number(clock.value)/1000)));
-document.querySelector('#impact').onclick=()=>seek(MOVES[move].active);
-function updateReference(){document.querySelector('#reference').href='../assets/reference/turnarounds/'+(subject==='boss'?(view==='back'||view==='side'?'boss-side-back.png':'boss-front.png'):'hero-'+(['front','side','back'].includes(view)?view:'front')+'.png');}
-function resize(){updateReference();document.querySelector('#export').disabled=!['player','boss'].includes(subject);const aspect=innerWidth/innerHeight,halfY=subject==='all'?Math.max(2.1,5.0/aspect):Math.max(1.85,2.2/aspect),center=subject==='all'?0:chars.find(c=>c.a.type===subject).a.x;camera.position.set(center,2.47,9);camera.lookAt(center,1.37,0);camera.left=-halfY*aspect;camera.right=halfY*aspect;camera.top=halfY;camera.bottom=-halfY;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);post.resize(Math.round(innerWidth*renderer.getPixelRatio()),Math.round(innerHeight*renderer.getPixelRatio()));}resize();addEventListener('resize',resize);
-Object.defineProperty(window,'inkStudy',{get:()=>({state,move,time:chars[0].a.t,paused,characters:chars.map(({w,a})=>({type:a.type,artLoaded:w.art?.loaded??true,tip:w.tip.toArray(),base:w.base.toArray(),head:w.head.getWorldPosition(new THREE.Vector3()).toArray(),finite:w.tip.toArray().every(Number.isFinite)}))})});
-function frame(now){requestAnimationFrame(frame);const dt=paused?0:Math.max(0,Math.min(.035,(now-last)/1000));last=now;time+=dt;const duration=MOVES[move].duration,actionTime=paused?time:time%(duration+.55);
-  for(const {w,a}of chars){a.state=state;a.move=move;a.vx=state==='run'?7:state==='dash'?15:0;a.t=Math.min(duration,actionTime);a.y=state==='attack'&&['air','dive'].includes(move)?.65:0;w.update(a,time,dt);w.root.visible=subject==='all'||subject===a.type;w.trailMesh.visible=w.trailMesh.visible&&w.root.visible;if(view!=='game'){w.root.rotation.y={front:-Math.PI/2,side:0,back:Math.PI/2}[view];w.trailMesh.visible=false;}if(turn){w.root.rotation.y=Math.sin(time*.6)*1.5;w.trailMesh.visible=false;}}
-  if(!paused&&document.activeElement!==clock)clock.value=Math.round(chars[0].a.t*1000);const active=state==='attack'&&actionTime>=MOVES[move].active&&actionTime<=MOVES[move].end;timing.textContent=state==='attack'?(active?'命中窗口':actionTime<MOVES[move].active?'蓄势':'收势'):'待机';timing.classList.toggle('active',active);
-  post.render(scene,camera,time,dt,false,false);
+$('move').onchange=e=>{move=e.target.value;pick('attack');};
+$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'继续':'定格';};
+function seek(t){paused=true;$('pause').textContent='继续';time=t;}
+$('time').oninput=e=>seek(Number(e.target.value)/1000);
+$('impact').onclick=()=>{pick('attack');seek(MOVES[move].active);};
+new ResizeObserver(resize).observe(canvas);
+const ready=Promise.all([...characters.values()].map(w=>w.ready));
+ready.then(()=>{$('loading').hidden=true;}).catch(e=>{$('loading').hidden=true;$('error').hidden=false;$('error').textContent=e.message;console.error(e);});
+Object.defineProperty(window,'inkStudy',{get:()=>({subject,view,state,move,time:a.t,paused,loaded:characters.get(subject).loaded,
+  source:ART_VIEWS[subject][view].file,renderer:'original-rgb-layered-mesh',parts:characters.get(subject).pieces.length,
+  characters:[...characters].map(([type,w])=>({type,visible:w.root.visible,loaded:w.loaded,tip:w.tip.toArray(),base:w.base.toArray(),finite:[...w.tip,...w.base].every(Number.isFinite)}))})});
+updateSource();
+function frame(now){
+  requestAnimationFrame(frame);const dt=paused?0:Math.min(.035,Math.max(0,(now-last)/1000));last=now;time+=dt;
+  const duration=MOVES[move].duration,actionTime=state==='attack'?(paused?time:time%(duration+.40)):time%1;
+  Object.assign(a,{type:subject,state,move,t:Math.min(duration,actionTime),vx:state==='run'?7:0,duration,y:state==='jump'||state==='attack'&&['air','dive'].includes(move)?.22:0});
+  for(const [type,w]of characters){if(type===subject){w.setView(view);w.update(a,time,dt);}w.root.visible=type===subject;w.trailMesh.visible=w.trailMesh.visible&&type===subject;}
+  if(!paused)$('time').value=Math.round(actionTime*1000);$('ms').textContent=Math.round(actionTime*1000)+' ms';
+  $('timing').textContent=state==='attack'?(actionTime<MOVES[move].active?'蓄势':actionTime<=MOVES[move].end?'命中':'收势'):state==='reference'?'原画立姿':'动作检视';
+  renderer.render(scene,camera);
 }requestAnimationFrame(frame);
-</script></html>
+</script></body></html>

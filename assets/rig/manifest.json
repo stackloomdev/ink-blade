@@ -1,0 +1,112 @@
+{
+  "format": "ICV1 lossless RLE coverage",
+  "sourceRGBUnmodified": true,
+  "createdWith": "On-device Apple Vision VNGenerateForegroundInstanceMaskRequest; no generative redraw",
+  "files": [
+    {
+      "file": "coverage/boss-front.coverage",
+      "source": "../reference/turnarounds/boss-front.png",
+      "sourceSHA256": "72da8f81ea6e83acdf5b6fc01afc3b5ba167ee767d345cdb9bc61c7434deeecf",
+      "width": 1024,
+      "height": 1536,
+      "sourceRegion": [
+        0,
+        0,
+        1024,
+        1536
+      ],
+      "bytes": 185493,
+      "sha256": "95c3b23e976a5468b58601126eaa79db36d66b9c2c6bb2ec9e5fc92ca19612e5"
+    },
+    {
+      "file": "coverage/boss-side-back.coverage",
+      "source": "../reference/turnarounds/boss-side-back.png",
+      "sourceSHA256": "67b50a324a79762a942f8be69ffa22c40af7d50edc160dfa9ed2429f0047d77b",
+      "width": 1448,
+      "height": 1086,
+      "sourceRegion": [
+        0,
+        0,
+        1448,
+        1086
+      ],
+      "bytes": 274791,
+      "sha256": "ccfcc25ab1a0f3dbc201e4fa6ebe6a896e96f3b56b02e4b9020e843cad161882"
+    },
+    {
+      "file": "coverage/boss-weapons.coverage",
+      "source": "../reference/turnarounds/boss-side-back.png",
+      "sourceSHA256": "67b50a324a79762a942f8be69ffa22c40af7d50edc160dfa9ed2429f0047d77b",
+      "width": 200,
+      "height": 1086,
+      "sourceRegion": [
+        0,
+        0,
+        200,
+        1086
+      ],
+      "bytes": 26589,
+      "sha256": "7c8e2695fb871c9ba1b3039fca8b8e92774182f02a7864a7ad378160728d82c2"
+    },
+    {
+      "file": "coverage/hero-back.coverage",
+      "source": "../reference/turnarounds/hero-back.png",
+      "sourceSHA256": "5db2c43efc68542c60074c54412da5315f0fbf2f781714c713c0e4b390af0862",
+      "width": 1024,
+      "height": 1536,
+      "sourceRegion": [
+        0,
+        0,
+        1024,
+        1536
+      ],
+      "bytes": 306222,
+      "sha256": "dbea75a18d878bfe68869d5926fa3cad400478a704ca30d44390c0b13f63f8b4"
+    },
+    {
+      "file": "coverage/hero-front.coverage",
+      "source": "../reference/turnarounds/hero-front.png",
+      "sourceSHA256": "b316f47c6f60581e2d8f87dfd6ee2a733c11f9210be91b3e899690777a119842",
+      "width": 1024,
+      "height": 1536,
+      "sourceRegion": [
+        0,
+        0,
+        1024,
+        1536
+      ],
+      "bytes": 293517,
+      "sha256": "933078cc7ef4b3ab9ff9a9ea242f0c8a6e0b27588dd3eba6a2fa7d12f03f243e"
+    },
+    {
+      "file": "coverage/hero-side.coverage",
+      "source": "../reference/turnarounds/hero-side.png",
+      "sourceSHA256": "dab5887026381cf659c875a4e8751ae5510ecde2937f5c4213207353125c73f2",
+      "width": 1024,
+      "height": 1536,
+      "sourceRegion": [
+        0,
+        0,
+        1024,
+        1536
+      ],
+      "bytes": 230085,
+      "sha256": "dbea650f9add04238dd7e2954a6d4ccb64992f519ef9a8fc3108b70fa54d2d1e"
+    },
+    {
+      "file": "coverage/hero-weapons.coverage",
+      "source": "../reference/turnarounds/hero-weapons.png",
+      "sourceSHA256": "456b98c5d23c3e27b6334c45a69f432d68502384de18f648eba41a1ee7e6d148",
+      "width": 1774,
+      "height": 887,
+      "sourceRegion": [
+        0,
+        0,
+        1774,
+        887
+      ],
+      "bytes": 166584,
+      "sha256": "5c59fca2ff81ba2a1ce236ea0ad8d2f2538f766c184f0d60595dea9bf2ea81df"
+    }
+  ]
+}
