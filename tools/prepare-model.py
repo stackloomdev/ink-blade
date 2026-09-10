@@ -19,8 +19,8 @@ assert meshes, 'The model must contain meshes'
 assert all(math.isfinite(v) for obj in meshes for point in obj.data.vertices for v in point.co)
 
 notes = bpy.data.texts.new('READ_ME')
-notes.write('墨刃 · 主角参考模型\n\n')
-notes.write('按用户提供的 hero-direction.png 重塑的基础模型。\n')
+notes.write('墨刃 · 角色参考模型\n\n')
+notes.write('按用户提供的三视图和武器图重塑，纹理通过 UV 映射到实体网格，原图未修改。\n')
 notes.write('包含分层网格和关节父子结构；没有蒙皮骨骼、动画片段或面部表情。\n')
 notes.write('游戏动画与布料变形仍由 src/warrior.js 驱动；本文件为待精修的静态建模底稿。\n')
 notes.write('GLB 使用标准材质近似颜色，游戏中的卡通光照与后期不包含在本文件中。\n')

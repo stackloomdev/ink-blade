@@ -1,0 +1,54 @@
+{
+  "source": "user-provided",
+  "imagesUnmodified": true,
+  "files": [
+    {
+      "file": "hero-front.png",
+      "role": "主角正面",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2162836,
+      "sha256": "b316f47c6f60581e2d8f87dfd6ee2a733c11f9210be91b3e899690777a119842"
+    },
+    {
+      "file": "hero-side.png",
+      "role": "主角侧面",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1990056,
+      "sha256": "dab5887026381cf659c875a4e8751ae5510ecde2937f5c4213207353125c73f2"
+    },
+    {
+      "file": "hero-back.png",
+      "role": "主角背面",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2197706,
+      "sha256": "5db2c43efc68542c60074c54412da5315f0fbf2f781714c713c0e4b390af0862"
+    },
+    {
+      "file": "hero-weapons.png",
+      "role": "主角刀与刀鞘",
+      "width": 1774,
+      "height": 887,
+      "bytes": 1462952,
+      "sha256": "456b98c5d23c3e27b6334c45a69f432d68502384de18f648eba41a1ee7e6d148"
+    },
+    {
+      "file": "boss-front.png",
+      "role": "白袍剑客正面及武器",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2083498,
+      "sha256": "72da8f81ea6e83acdf5b6fc01afc3b5ba167ee767d345cdb9bc61c7434deeecf"
+    },
+    {
+      "file": "boss-side-back.png",
+      "role": "白袍剑客侧面与背面",
+      "width": 1448,
+      "height": 1086,
+      "bytes": 2062265,
+      "sha256": "67b50a324a79762a942f8be69ffa22c40af7d50edc160dfa9ed2429f0047d77b"
+    }
+  ]
+}

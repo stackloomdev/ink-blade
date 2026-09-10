@@ -1,5 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { MOVES } from './combat.js';
+import { ReferenceArt } from './reference-art.js';
+import { buildReferenceWeapons } from './reference-weapons.js';
 
 const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
 const lerp = (a,b,t) => a+(b-a)*t;
@@ -75,11 +77,13 @@ export class Warrior {
     this.type=type;this.root=new THREE.Group();this.body=new THREE.Group();this.torso=new THREE.Group();
     this.root.add(this.body);this.body.add(this.torso);this.materials=[];this.textures=[];this.geometries=new Set();
     this.gait=0;this.lastTime=null;this.q=null;
-    const boss=type==='boss',hero=type==='player';
-    const gradient=new THREE.DataTexture(new Uint8Array([32,76,205,255]),4,1,THREE.RedFormat);
+    const boss=type==='boss',hero=type==='player',detailed=hero||boss;
+    const gradient=new THREE.DataTexture(new Uint8Array(detailed?[105,159,213,255]:[32,76,205,255]),4,1,THREE.RedFormat);
     gradient.minFilter=gradient.magFilter=THREE.NearestFilter;gradient.needsUpdate=true;this.textures.push(gradient);
     const toon=(color,extra={})=>{const m=new THREE.MeshToonMaterial({color,gradientMap:gradient,...extra});this.materials.push(m);return m;};
     const flat=(color,extra={})=>{const m=new THREE.MeshBasicMaterial({color,...extra});this.materials.push(m);return m;};
+    this.art=detailed?new ReferenceArt(type,gradient,this):null;
+    this.ready=this.art?.ready||Promise.resolve();
     this.root.name=hero?'Moblade_Hero':`Warrior_${type}`;
     this.body.name='hips';this.torso.name='chest';
     this.cloth=toon(boss?0xc4ccd0:hero?0x171a1f:0x303d46);
@@ -120,14 +124,20 @@ export class Warrior {
     };
     this.ellipsoid=ellipsoid;
     const tube=(parent,pts,r,m)=>add(parent,strip(pts,r),m);
-    const chest=add(this.torso,rings([[0,.18,.205],[.12,.192,.22],[.27,.165,.23],[.43,.185,.27],
-      [.59,.202,.286],[.68,.175,.25],[.76,.12,.14],[.79,.075,.082]],24,.025),hero?this.ivory:this.cloth,true);
+    const painted=(parent,g,part,fallback)=>{
+      if(!this.art)return add(parent,g,fallback,true);
+      const projected=this.art.project(g,part);return add(parent,projected.geometry,projected.material);
+    };
+    const chest=painted(this.torso,rings([[0,.16,.205],[.12,.177,.22],[.27,.145,.23],[.43,.164,.255],
+      [.59,.175,.27],[.68,.150,.235],[.76,.10,.135],[.79,.067,.079]],28,.018),'chest',hero?this.ivory:this.cloth);
     // The wrap crosses the chest, whose front is +X, rather than drawing a flat vest over the camera.
+    if(!detailed){
     add(this.torso,patch([[.123,.76,-.10],[.201,.61,-.19],[.223,.40,.12],[.169,.25,.20],[.167,.45,.05]]),hero?this.cloth:this.fold);
     add(this.torso,patch([[.139,.73,.11],[.205,.58,.18],[.208,.51,.09],[.129,.72,.045]]),this.dark);
     tube(this.torso,[[.12,.765,-.096],[.213,.58,-.1],[.215,.41,.09],[.172,.25,.19]],.009,this.trim);
     tube(this.torso,[[.12,.765,.096],[.204,.59,.15],[.216,.50,.07]],.012,this.trim);
     for(let i=0;i<3;i++)tube(this.torso,[[.186,.29+i*.105,-.07],[.204,.27+i*.105,.035],[.177,.21+i*.105,.19]],.007,this.fold);
+    }
     // A fitted sash joins the robe to the hips; the lower panels are independent cloth surfaces.
     add(this.body,rings([[-.055,.207,.225],[-.02,.213,.23],[.075,.207,.226],[.105,.19,.219]],24,.012),this.dark,true);
     for(let y=-.020;y<.075;y+=.060)add(this.body,rings([[y,.215,.234],[y+.012,.215,.234]],24),hero?this.cord:this.trim);
@@ -137,21 +147,23 @@ export class Warrior {
     tube(knot,[[0,-.01,0],[-.11,-.17,.02],[-.09,-.29,.025]],.012,this.trim);
     tube(knot,[[0,-.01,0],[.03,-.19,.02],[.09,-.32,.025]],.01,this.trim);
     this.cloths=[];
-    const length=boss?1.00:hero?.92:.72;
-    const panels=hero?[[.13,1.20],[1.26,2.96],[3.08,4.77],[4.84,6.02]]:[[.18,2.30],[2.23,4.40],[4.32,6.11]];
+    const length=boss?1.04:hero?1.00:.72;
+    const panels=detailed?[[.04,.89],[.92,1.69],[1.72,2.68],[2.71,3.57],[3.60,4.51],[4.54,5.37],[5.40,6.24]]:[[.18,2.30],[2.23,4.40],[4.32,6.11]];
     panels.forEach(([from,to],i)=>{
       const rows=10,cols=10,p=new Float32Array((rows+1)*(cols+1)*3),idx=[],uv=[];
       for(let j=0;j<=rows;j++)for(let k=0;k<=cols;k++)uv.push(k/cols,1-j/rows);
       for(let j=0;j<rows;j++)for(let k=0;k<cols;k++){const n=j*(cols+1)+k;idx.push(n,n+cols+1,n+1,n+1,n+cols+1,n+cols+2);}
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);
-      const m=(hero?(i===0||i===3?this.ivory:this.cloth):i===1?this.fold:this.cloth).clone();m.side=THREE.DoubleSide;this.materials.push(m);
+      const center=(from+to)*.5,view=Math.cos(center)>.35?'front':Math.cos(center)<-.35?'back':'side';
+      const material=detailed?this.art.cloth(g,rows,cols,view,i%2?.42:0,i%2?1:.61):(i===1?this.fold:this.cloth);
+      const m=material.clone();m.side=THREE.DoubleSide;this.materials.push(m);
       const mesh=add(this.body,g,m);const lineIndices=[];
       for(let k=0;k<cols;k++)lineIndices.push(rows*(cols+1)+k,rows*(cols+1)+k+1);
       for(let k=2;k<cols;k+=3)for(let j=3;j<rows;j++)lineIndices.push(j*(cols+1)+k,(j+1)*(cols+1)+k);
       const seamGeometry=new THREE.BufferGeometry();seamGeometry.setAttribute('position',g.attributes.position);seamGeometry.setIndex(lineIndices);this.geometries.add(seamGeometry);
       const seamMaterial=new THREE.LineBasicMaterial({color:boss?0x929e94:0x66736c,transparent:true,opacity:.22});this.materials.push(seamMaterial);
       const seam=new THREE.LineSegments(seamGeometry,seamMaterial);this.body.add(seam);
-      this.cloths.push({g,p,from,to,rows,cols,length:length*(hero?([.87,1.02,1.08,.80][i]):(i===1?1:.95)),i});
+      this.cloths.push({g,p,from,to,rows,cols,length:length*(detailed?[.88,.99,.95,1,.90,.96,.89][i]:(i===1?1:.95)),i});
     });
     // Legs have separate thigh, calf, ankle and boot volumes, with cloth gathers above the bindings.
     this.legs=[];
@@ -160,13 +172,13 @@ export class Warrior {
       add(leg,rings([[0,.125,.137],[-.12,.137,.145],[-.34,.114,.12],[-.54,.09,.097]],18,.045),this.dark,true);
       const knee=new THREE.Group();knee.position.y=-.57;leg.add(knee);
       ellipsoid(knee,0,0,0,.097,.11,.1,this.dark);
-      add(knee,rings([[0,.095,.10],[-.14,.087,.09],[-.28,.068,.072],[-.54,.057,.065]],16,.025),this.dark,true);
+      painted(knee,rings([[0,.095,.10],[-.14,.087,.09],[-.28,.068,.072],[-.54,.057,.065]],20,.025),'boot',this.dark);
       for(let j=0;j<3;j++){
         const y=-.17-j*.084,rx=lerp(.085,.067,j/2),rz=rx+ .005;
         const binding=add(knee,rings([[y,rx,rz],[y-.018,rx,rz]],16),this.fold);binding.rotation.z=-.09;
       }
       const foot=new THREE.Group();foot.position.y=-.54;knee.add(foot);
-      ellipsoid(foot,.062,-.022,0,.144,.058,.078,this.dark,true);
+      const boot=ellipsoid(foot,.070,-.022,0,.157,.058,.078,boss?this.cloth:this.dark,true);
       const sole=ellipsoid(foot,.068,-.054,0,.146,.020,.081,this.ink);
       tube(foot,[[-.06,.018,.069],[.05,.04,.079],[.18,-.005,.055]],.009,this.fold);
       this.legs.push({leg,knee,foot});
@@ -174,9 +186,10 @@ export class Warrior {
     // A small, sculpted head and neck keep the silhouette close to adult human proportions.
     add(this.torso,rings([[.70,.079,.079],[.79,.075,.077],[.85,.071,.074]],16),this.dark);
     this.head=new THREE.Group();this.head.name='head';this.head.position.set(.028,.785,0);this.torso.add(this.head);
-    if(hero)this.head.scale.setScalar(.92);
-    add(this.head,rings([[0,.065,.062,.017],[.035,.095,.077,.018],[.09,.116,.099,.004],
-      [.175,.119,.11,-.006],[.25,.108,.102,-.013],[.29,.075,.072,-.015],[.309,.009,.01,-.02]],24),this.skin,true);
+    if(detailed)this.head.scale.setScalar(.96);
+    painted(this.head,rings([[0,.046,.041,.038],[.024,.071,.067,.032],[.060,.094,.084,.018],[.10,.106,.095,.009],
+      [.145,.117,.104,.004],[.19,.120,.109,-.004],[.25,.110,.10,-.01],[.29,.077,.073,-.015],[.309,.009,.01,-.02]],40),'face',this.skin);
+    if(!detailed){
     ellipsoid(this.head,.122,.134,0,hero?.013:.020,.028,hero?.015:.022,this.skin);
     ellipsoid(this.head,.122,.172,0,hero?.012:.018,.038,hero?.017:.023,this.skin);
     for(const s of [-1,1]){
@@ -187,9 +200,10 @@ export class Warrior {
       tube(this.head,[[.077,.219,s*.087],[.116,.211,s*.059]],.01,this.hair);
       tube(this.head,[[.099,.064,s*.034],[.117,.068,0]],.004,this.ink);
     }
+    }
     // A fitted hair cap with a swept fringe, tied crown and long articulated queue.
     const hairCap=add(this.head,rings([[.21,.118,.111,-.024],[.255,.116,.111,-.024],
-      [.306,.086,.083,-.026],[.332,.035,.036,-.03],[.339,.004,.006,-.03]],24,.015),this.hair,true);
+      [.306,.086,.083,-.026],[.332,.035,.036,-.03],[.339,.004,.006,-.03]],28,.015),this.hair);
     ellipsoid(this.head,-.105,.164,0,.044,.106,.092,this.hair);
     for(const s of [-1,1]){
       if(!hero)tube(this.head,[[-.09,.26,s*.08],[-.01,.282,s*.104],[.091,.234,s*.071],[.113,.198,s*.049]],.019,this.hair);
@@ -197,10 +211,10 @@ export class Warrior {
     }
     ellipsoid(this.head,-.075,.323,0,.046,.054,.049,this.hair,true);
     add(this.head,rings([[.316,.047,.044,-.07],[.329,.047,.044,-.07]],18),this.trim);
-    this.tail=new THREE.Group();this.tail.position.set(-.12,.27,-.03);this.head.add(this.tail);
+    this.tail=new THREE.Group();this.tail.position.set(-.105,detailed?.365:.27,-.015);this.head.add(this.tail);
     tube(this.tail,[[0,0,0],[-.09,-.07,0],[-.12,-.25,.02],[-.09,-.43,.015]],.026,this.hair);
     tube(this.tail,[[-.02,-.01,.026],[-.10,-.14,.028],[-.11,-.36,.038],[-.07,-.48,.02]],.012,this.hair);
-    if(hero){
+    if(detailed){
       // Broad, pointed locks follow the supplied loose-haired, uncovered-face design.
       const hairLock=(parent,points,width,depth=.013)=>{
         const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(...p))),p=[],idx=[];
@@ -214,20 +228,15 @@ export class Warrior {
       for(const side of [-1,1]){
         for(let i=0;i<3;i++)hairLock(this.head,[[-.07,.30,side*(.015+i*.02)],[.06,.29-i*.015,side*(.060+i*.019)],[.118,.20-i*.02,side*(.084+i*.017)],[.088,.10-i*.05,side*(.112+i*.01)]],.020-i*.003);
         for(let i=0;i<3;i++)hairLock(this.head,[[-.083,.30,side*.09],[-.16,.29-i*.08,side*.12],[-.22-i*.025,-.01-i*.08,side*.145],[-.16-i*.035,-.29-i*.07,side*.12]],.037);
-        for(let i=0;i<3;i++)hairLock(this.tail,[[-.02,0,side*.025],[-.16-i*.025,-.10,side*(.045+i*.018)],[-.28-i*.05,-.33,side*.063],[-.22-i*.07,-.69-i*.12,side*.09]],.04);
-        hairLock(this.head,[[-.04,.32,side*.03],[-.10,.39,side*.055],[-.22,.38,side*.06],[-.26,.27,side*.07]],.027);
+        for(let i=0;i<5;i++)hairLock(this.tail,[[-.02,0,side*.025],[-.14-i*.011,-.10,side*(.025+i*.014)],[-.21-i*.025,-.33,side*(.025+i*.018)],[-.16-i*.018,-.78-i*.05,side*.07]],.050-i*.004,.024);
+        if(hero)hairLock(this.head,[[-.04,.32,side*.03],[-.10,.39,side*.055],[-.22,.38,side*.06],[-.26,.27,side*.07]],.027);
       }
       hairLock(this.head,[[.035,.31,.045],[.112,.26,.022],[.133,.215,-.01],[.128,.17,-.035]],.011,.006);
-      for(const side of [-1,1]){
-        add(this.head,patch([[.101,.190,side*.080],[.125,.183,side*.051],[.130,.174,side*.031],[.120,.175,side*.064]]),this.dark);
-        tube(this.head,[[.099,.215,side*.081],[.121,.209,side*.056],[.128,.200,side*.030]],.003,this.hair);
-      }
-      tube(this.head,[[.113,.061,-.023],[.123,.059,0],[.113,.061,.023]],.0025,this.fold);
       add(this.head,rings([[.327,.047,.043,-.07],[.338,.047,.043,-.07]],18),this.cord);
       tube(this.head,[[-.09,.32,.04],[-.17,.31,.08],[-.21,.21,.08]],.005,this.cord);
-      add(this.torso,rings([[.735,.096,.11],[.79,.10,.109],[.80,.086,.092]],20,.035),this.ivory);
+      add(this.torso,rings([[.735,.096,.11],[.79,.10,.109],[.80,.086,.092]],20,.035),boss?this.cloth:this.ivory);
       tube(this.torso,[[.09,.795,.09],[.18,.59,.195],[.22,.32,.09]],.010,this.dark);
-      // Belt cords and a small metal/jade pendant carry the reference's vermilion accents.
+      // Both references have small metal/jade ornaments; only the hero wears vermilion.
       tube(this.body,[[.14,.04,.205],[.19,-.13,.24],[.09,-.32,.26]],.009,this.cord);
       tube(this.body,[[.14,.03,.207],[.16,-.10,.275],[.08,-.27,.29]],.006,this.bronze);
       const pendant=new THREE.Group();pendant.position.set(.07,-.30,.28);this.body.add(pendant);
@@ -250,45 +259,51 @@ export class Warrior {
     }
     this.ribbons=[];
     for(let i=0;i<2;i++){
-      const group=new THREE.Group();group.position.set(hero?.06:-.13,hero?.025:.75,hero?.255+i*.035:-.045+i*.075);this.torso.add(group);
+      const group=new THREE.Group();group.position.set(hero?.06:-.13,hero?.025:boss?.97:.75,hero?.255+i*.035:-.045+i*.075);this.torso.add(group);
       const rows=20,p=new Float32Array((rows+1)*6),indices=[];
       for(let j=0;j<rows;j++){const n=j*2;indices.push(n,n+2,n+1,n+1,n+2,n+3);}
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setIndex(indices);
       add(group,g,hero?this.cord:this.flowMaterial);this.ribbons.push({group,g,p,rows,i});
     }
     this.mantle=null;
-    if(hero){
+    if(detailed){
       // The reference has a dark shoulder mantle over long, split ivory inner robes.
-      add(this.torso,rings([[.53,.23,.31,-.07],[.65,.22,.285,-.06],[.76,.14,.18,-.04],[.82,.094,.11,-.02]],24,.04),this.dark,true);
+      painted(this.torso,rings([[.53,.21,.31,-.07],[.65,.20,.285,-.06],[.76,.14,.18,-.04],[.82,.094,.11,-.02]],28,.035),'mantle',this.dark);
       tube(this.torso,[[-.07,.73,.26],[-.08,.62,.31],[-.18,.53,.285]],.009,this.trim);
       const rows=16,cols=6,p=new Float32Array((rows+1)*(cols+1)*3),idx=[];
       for(let j=0;j<rows;j++)for(let k=0;k<cols;k++){const n=j*(cols+1)+k;idx.push(n,n+1,n+cols+1,n+1,n+cols+2,n+cols+1);}
       const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setIndex(idx);
-      const m=this.cloth.clone();m.side=THREE.DoubleSide;this.materials.push(m);add(this.torso,g,m);this.mantle={g,p,rows,cols};
+      const m=this.art.cloth(g,rows,cols,'back',.18,.82);add(this.torso,g,m);this.mantle={g,p,rows,cols};
     }
     if(boss){
-      // A long, swept lock frames a smaller, shadowed face.
-      for(const side of [-1,1])tube(this.head,[[-.10,.28,side*.087],[-.135,.12,side*.10],[-.17,-.10,side*.13],[-.22,-.30,side*.12]],.022,this.hair);
-      tube(this.head,[[.06,.263,.107],[.094,.179,.104],[.069,.09,.109]],.018,this.hair);
-      add(this.torso,rings([[.70,.135,.155],[.795,.098,.112],[.86,.09,.095]],20),this.cloth,true);
+      const crown=add(this.head,rings([[.325,.070,.058,-.065],[.40,.048,.043,-.065],[.48,.037,.032,-.067]],10,.08),this.trim,true);
+      tube(this.head,[[-.065,.365,-.15],[-.065,.372,.15]],.009,this.steel);
+      for(const side of [-1,1])tube(this.head,[[-.043,.34,side*.07],[-.025,.37,side*.03],[-.054,.445,side*.025]],.005,this.steel);
     }
     // Upper sleeves are broad at the shoulder and gather into narrow wrapped forearms.
-    this.arms=[];
+    this.arms=[];this.sleeves=[];
     for(const z of [-.238,.238]){
       const upper=new THREE.Group();upper.name=z>0?'right_upper_arm':'left_upper_arm';upper.position.set(0,.65,z);this.torso.add(upper);
-      const sleeve=hero&&z>0?this.ivory:this.cloth;
-      ellipsoid(upper,0,-.035,0,.103,.127,.108,sleeve);
-      add(upper,rings([[.015,.094,.108],[-.07,.111,.113],[-.23,.115,.114],[-.34,.084,.085],[-.40,.072,.074]],18,.06),sleeve,true);
+      const sleeve=hero?this.ivory:this.cloth;
+      ellipsoid(upper,0,-.035,0,.103,.107,.108,hero?this.cloth:sleeve);
+      if(detailed){
+        const rows=12,cols=24,p=new Float32Array((rows+1)*(cols+1)*3),idx=[],uv=[];
+        for(let j=0;j<=rows;j++)for(let k=0;k<=cols;k++)uv.push(...this.art.uv('sleeve','front',k/cols,j/rows));
+        for(let j=0;j<rows;j++)for(let k=0;k<cols;k++){const n=j*(cols+1)+k;idx.push(n,n+1,n+cols+1,n+1,n+cols+2,n+cols+1);}
+        const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(p,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(idx);
+        add(upper,g,this.art.materials.front.material);this.sleeves.push({g,p,rows,cols,upper,side:z>0?1:-1});
+      }else add(upper,rings([[.015,.094,.108],[-.07,.111,.113],[-.23,.115,.114],[-.34,.084,.085],[-.40,.072,.074]],18,.06),sleeve,true);
       const fore=new THREE.Group();fore.position.y=-.40;upper.add(fore);
       ellipsoid(fore,0,0,0,.077,.086,.078,this.fold);
-      add(fore,rings([[0,.077,.075],[-.08,.073,.069],[-.29,.044,.048],[-.365,.044,.044]],16,.02),this.dark,true);
+      painted(fore,rings([[0,.084,.082],[-.08,.079,.075],[-.29,.048,.052],[-.365,.044,.044]],24,.035),'armor',this.dark);
       for(let j=0;j<3;j++){
         const y=-.10-j*.069,r=lerp(.072,.055,j/2);
-        const wrap=add(fore,rings([[y,r,r],[y-.016,r,r]],16),this.trim);wrap.rotation.z=.13;
+        const wrap=add(fore,rings([[y,r+.006,r+.008],[y-(detailed?.006:.016),r+.006,r+.008]],16),detailed?this.bronze:this.trim);wrap.rotation.z=.13;
+        if(detailed)for(const side of [-1,1])tube(fore,[[.015,y+.02,side*(r+.004)],[.064,y-.026,side*r*.7],[.021,y-.075,side*(r-.004)]],.0035,this.bronze);
       }
       const hand=new THREE.Group();hand.position.set(0,-.37,.002);fore.add(hand);
       ellipsoid(hand,0,-.016,0,.047,.064,.036,hero?this.dark:this.skin,true);
-      for(let j=0;j<4;j++)ellipsoid(hand,.024,-.053+j*.023,.025,.028,.012,.024,hero?this.leather:this.skin);
+      for(let j=0;j<4;j++)ellipsoid(hand,.024,-.053+j*.023,.025,.028,.012,.024,this.skin);
       ellipsoid(hand,-.031,-.012,.025,.018,.033,.020,hero?this.dark:this.skin);
       this.arms.push({upper,fore,hand});
     }
@@ -297,7 +312,9 @@ export class Warrior {
     this.weapon=new THREE.Group();this.arms[1].hand.add(this.weapon);this.weapon.position.set(.035,-.016,.025);
     this.weapon.name='sword_grip';this.tail.name='ponytail';
     this.bladeGroup=new THREE.Group();this.weapon.add(this.bladeGroup);
-    if(type==='spear'){
+    if(detailed){
+      this.referenceWeapons=buildReferenceWeapons(this,type);this.ready=Promise.all([this.ready,this.referenceWeapons.ready]);this.ready.catch(()=>{});
+    }else if(type==='spear'){
       const shaft=add(this.weapon,new THREE.CylinderGeometry(.021,.025,3.1,10),this.leather);shaft.position.y=.53;
       for(let i=0;i<4;i++){const band=add(this.weapon,new THREE.CylinderGeometry(.026,.026,.025,10),this.trim);band.position.y=1.7+i*.05;}
       add(this.bladeGroup,patch([[-.072,1.92,0],[0,2.33,.018],[.072,1.92,0],[0,1.84,.035]]),this.steel);
@@ -364,6 +381,7 @@ export class Warrior {
     else if(a.state==='execute')q=keys(STANCES.slash3,clamp(t/.95,0,1));
     else if(a.state==='ultimate')q=keys([[0,cut],[.38,finish],[.8,coil],[1,cut]],(t%.19)/.19);
     else if(a.state==='dead')q=pose({hip:.32,lean:1.30,rx:-.22,ry:.21,lx:-.2,ly:.37,blade:1.3,fx:.64,bx:-.26});
+    else if(a.state==='model')q=pose({hip:1.17,hx:0,lean:0,twist:0,fx:.10,bx:-.10,head:0});
     else q.hip+=Math.sin(time*2)*.007;
     if(boss&&a.state==='idle')q=a.phase>=2?pose({hip:1.04,lean:-.17,rx:-.10,ry:.13,lx:-.1,ly:.10,blade:2.05,fx:.38,bx:-.36}):pose({hip:1.13,lean:.04,rx:.25,ry:.40,blade:-.74,fx:.29,bx:-.25});
     if(boss&&a.flash>0&&a.state!=='phase')q.lean+=Math.sin(a.flash/.12*Math.PI)*.1;
@@ -386,6 +404,7 @@ export class Warrior {
       const arm=this.arms[i],x=front?q.rx:q.lx,y=front?q.ry:q.ly;
       const twoHands=a.type==='spear'||a.state==='guard'||a.state==='phase'||(a.state==='attack'&&a.move==='slash3')||(a.state==='windup'&&boss&&a.phase>=2);
       const target=new THREE.Vector3(x,y,front?.248:-.22);
+      if(a.state==='model')target.set(.015,-.03,front?.60:-.60);
       if(!front&&twoHands){
         const grip=a.type==='spear'?(a.state==='enemyAttack'?-.25:.45):-.18;
         target.copy(this.torso.worldToLocal(this.weapon.localToWorld(new THREE.Vector3(0,grip,.018))));
@@ -402,20 +421,47 @@ export class Warrior {
       if(front){this.orientWeapon(q.blade);this.root.updateMatrixWorld(true);}
     }
     this.orientWeapon(q.blade);
+    for(const tassel of this.referenceWeapons?.tassels||[]){
+      const qWorld=tassel.parent.getWorldQuaternion(new THREE.Quaternion()).invert();
+      tassel.quaternion.copy(qWorld);tassel.rotation.z+=Math.sin(time*7)*.11+Math.min(.8,Math.abs(a.vx)*.03);
+    }
     this.bladeGroup.visible=!(boss&&a.phase>=2&&['windup','phase','idle','run'].includes(a.state));
     // Cloth follows stride and acceleration; the split panels keep the legs readable.
     const motion=clamp(a.vx*a.facing*.085,-.8,1.6),swing=Math.sin(this.gait*TAU);
+    const legCapsules=[];
+    if(this.art)for(const {leg,knee}of this.legs){
+      const hip=new THREE.Vector3(0,0,leg.position.z),joint=new THREE.Vector3(Math.sin(leg.rotation.z)*.57,-Math.cos(leg.rotation.z)*.57,leg.position.z);
+      const foot=joint.clone().add(new THREE.Vector3(Math.sin(leg.rotation.z+knee.rotation.z)*.54,-Math.cos(leg.rotation.z+knee.rotation.z)*.54,0));
+      legCapsules.push({a:hip,b:joint,r:.166},{a:joint,b:foot,r:.116});
+    }
+    this.root.updateMatrixWorld(true);
+    for(const sleeve of this.sleeves){
+      const inverse=sleeve.upper.getWorldQuaternion(new THREE.Quaternion()).invert();
+      const down=new THREE.Vector3(0,-1,0).applyQuaternion(inverse);
+      for(let j=0;j<=sleeve.rows;j++)for(let k=0;k<=sleeve.cols;k++){
+        const u=j/sleeve.rows,angle=k/sleeve.cols*TAU,r=.101+u*(boss?.125:.105),fold=1+Math.sin(angle*7+u*3)*.065;
+        const drape=Math.pow(u,1.6)*(.12+(Math.sin(angle)+1)*.075);
+        sleeve.p.set([Math.cos(angle)*r*fold+down.x*drape,-.025-u*.355+down.y*drape,Math.sin(angle)*r*fold+down.z*drape],(j*(sleeve.cols+1)+k)*3);
+      }sleeve.g.attributes.position.needsUpdate=true;sleeve.g.computeVertexNormals();
+    }
     for(const c of this.cloths){
       for(let j=0;j<=c.rows;j++)for(let k=0;k<=c.cols;k++){
         const v=j/c.rows,angle=lerp(c.from,c.to,k/c.cols),fold=Math.sin(angle*9+v*.6)*.014*v;
-        const rx=.20+v*.16+fold,rz=.222+v*.105+fold;
+        const rx=.20+v*(this.art?.24:.16)+fold,rz=.222+v*(this.art?.19:.105)+fold;
         const footPush=Math.cos(angle)>0?Math.abs(swing)*.15*v*v:0;
         const flutter=Math.sin(time*9+angle*2+v*3)*(.012+Math.abs(motion)*.037)*v*v;
         const n=(j*(c.cols+1)+k)*3;
         c.p[n]=Math.cos(angle)*rx-motion*.34*v*v+flutter+footPush;
-        const ragged=this.type==='player'?.08*Math.sin(angle*17+c.i)+.05*Math.cos(angle*31):0;
+        const ragged=this.type==='player'?.045*Math.sin(angle*17+c.i)+.03*Math.cos(angle*31):boss?.02*Math.sin(angle*6):0;
         c.p[n+1]=-.018-v*c.length+Math.pow(v,5)*(.04*Math.sin(angle*3)+ragged+Math.abs(motion)*.1)+Math.abs(swing)*v*.025;
         c.p[n+2]=Math.sin(angle)*rz+Math.sin(time*6+v*3+angle)*.012*v;
+        // Push the hem outside the posed legs so bent knees do not cut through the robe.
+        if(v>.04)for(const capsule of legCapsules){
+          const {a,b,r}=capsule,dx=b.x-a.x,dy=b.y-a.y,dz=b.z-a.z;
+          const t=clamp(((c.p[n]-a.x)*dx+(c.p[n+1]-a.y)*dy+(c.p[n+2]-a.z)*dz)/(dx*dx+dy*dy+dz*dz),0,1);
+          const nx=c.p[n]-a.x-t*dx,ny=c.p[n+1]-a.y-t*dy,nz=c.p[n+2]-a.z-t*dz,d=Math.hypot(nx,ny,nz);
+          if(d<r&&d>1e-5){const push=(r-d)/d;c.p[n]+=nx*push;c.p[n+1]+=ny*push;c.p[n+2]+=nz*push;}
+        }
       }
       c.g.attributes.position.needsUpdate=true;c.g.computeVertexNormals();
     }
@@ -423,8 +469,8 @@ export class Warrior {
     this.flowMaterial.color.set(a.state==='ultimate'?0x9f1f1e:this.type==='player'?0x91a1a9:boss?0xaebdc6:0x4b6573);
     for(const r of this.ribbons){
       for(let j=0;j<=r.rows;j++){
-        const u=j/r.rows,hero=this.type==='player',len=(r.i?1.00:1.25)*(1+Math.abs(motion)*.30),x=hero?-u*.08-motion*u*u*.58:-u*len,
-          y=(hero?-.68:-.12)*u+Math.sin(time*6-u*7+r.i*.9)*u*(.04+Math.abs(motion)*.055),width=(hero?.019:.044+Math.sin(u*Math.PI)*.017)*(1-u*.60);
+        const u=j/r.rows,hero=this.type==='player',len=(r.i?1.00:1.25)*(1+Math.abs(motion)*.30),x=hero?-u*.08-motion*u*u*.58:boss?-u*.15-motion*u*u*.7:-u*len,
+          y=(hero?-.80:boss?-1.28:-.12)*u+Math.sin(time*6-u*7+r.i*.9)*u*(.04+Math.abs(motion)*.055),width=(hero?.021:.044+Math.sin(u*Math.PI)*.017)*(1-u*.60);
         r.p.set([x,y+width,Math.sin(u*4+time*4)*u*.065,x,y-width,Math.sin(u*4+time*4)*u*.065],j*6);
       }r.g.attributes.position.needsUpdate=true;r.g.computeVertexNormals();
     }
@@ -441,12 +487,12 @@ export class Warrior {
     this.shadow.position.y=-a.y/size+.018;this.shadow.scale.setScalar(1/(1+a.y*.15));this.shadow.material.opacity=.45/(1+a.y*.6);
     this.root.visible=a.state!=='dead'||a.deadTime<.22;
     this.root.updateMatrixWorld(true);
-    this.weapon.localToWorld(this.tip.set(0,this.weaponLength,.02));this.weapon.localToWorld(this.base.set(0,.14,.02));
+    this.weapon.localToWorld(this.tip.copy(this.weaponTip||new THREE.Vector3(0,this.weaponLength,.02)));this.weapon.localToWorld(this.base.set(0,.14,.02));
     if(['run','dash'].includes(a.state)&&a.y<.01&&this.tip.y<.035&&a.type!=='spear'){
       const hilt=this.weapon.localToWorld(new THREE.Vector3());
       const angle=Math.acos(clamp((.035-hilt.y)/(this.weaponLength*size),-1,1));
       this.orientWeapon(angle);
-      this.root.updateMatrixWorld(true);this.weapon.localToWorld(this.tip.set(0,this.weaponLength,.02));this.weapon.localToWorld(this.base.set(0,.14,.02));
+      this.root.updateMatrixWorld(true);this.weapon.localToWorld(this.tip.copy(this.weaponTip||new THREE.Vector3(0,this.weaponLength,.02)));this.weapon.localToWorld(this.base.set(0,.14,.02));
     }
     const move=MOVES[a.move];
     const cutting=a.state==='ultimate'||a.state==='enemyAttack'||(a.state==='attack'&&move&&t>=move.active*.7&&t<=move.end+.03);
@@ -477,6 +523,8 @@ export class Warrior {
     return new THREE.Mesh(g,new THREE.MeshBasicMaterial({color:red?0xa62622:0x182224,transparent:true,opacity:.17,depthWrite:false,side:THREE.DoubleSide}));
   }
   dispose(){
+    this.art?.dispose();
+    this.referenceWeapons?.dispose();
     this.geometries.forEach(g=>g.dispose());this.materials.forEach(m=>m.dispose());this.textures.forEach(t=>t.dispose());this.trailGeometry.dispose();
   }
 }
