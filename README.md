@@ -2,6 +2,8 @@
 
 水墨横版刀剑动作游戏。直接控制角色，以连斩开路，以弹反破势。Three.js / WebGL 2 渲染，独立的 60 Hz 战斗逻辑。
 
+**在线试玩：[ink-blade.stackloom.org](https://ink-blade.stackloom.org/)**
+
 这是独立项目，与 `last-beacon` 同级，不依赖灯塔的代码、资源或启动服务。
 
 ## 本地运行
